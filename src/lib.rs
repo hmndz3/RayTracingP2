@@ -5,6 +5,7 @@
 //! ni computo en GPU: la rejilla voxel, las intersecciones, las texturas, el
 //! sombreado, los formatos de imagen y el paralelismo estan implementados aqui.
 
+pub mod geometry;
 pub mod math;
 pub mod ray;
 
