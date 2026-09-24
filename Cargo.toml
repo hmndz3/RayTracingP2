@@ -1,0 +1,36 @@
+[package]
+name = "abadia_del_eclipse"
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.70"
+authors = ["Harry Mendez <harrymndz3@gmail.com>"]
+description = "Raytracer de CPU y diorama de cubos texturizados: La Abadia del Eclipse"
+license = "MIT"
+readme = "README.md"
+
+# Este proyecto no declara ninguna dependencia: ni de runtime, ni de desarrollo,
+# ni de compilacion. Todo (matematicas, texturas, formatos de imagen, hilos y la
+# ventana nativa) esta implementado sobre la biblioteca estandar de Rust.
+[dependencies]
+
+[dev-dependencies]
+
+[build-dependencies]
+
+[lib]
+name = "abadia"
+path = "src/lib.rs"
+
+[[bin]]
+name = "abadia"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+debug = false
+
+[profile.dev]
+opt-level = 1

@@ -1,0 +1,8 @@
+/target
+**/*.rs.bk
+*.pdb
+
+# Salidas de render locales que no forman parte de la entrega
+/out
+/renders
+/docs/tour
