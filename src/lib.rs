@@ -6,6 +6,7 @@
 //! sombreado, los formatos de imagen y el paralelismo estan implementados aqui.
 
 pub mod math;
+pub mod ray;
 
 /// Version del proyecto, tomada de Cargo.toml.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
