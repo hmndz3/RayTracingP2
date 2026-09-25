@@ -11,6 +11,7 @@ pub mod image;
 pub mod math;
 pub mod noise;
 pub mod ray;
+pub mod texture;
 
 /// Version del proyecto, tomada de Cargo.toml.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
