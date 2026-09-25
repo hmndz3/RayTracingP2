@@ -12,6 +12,7 @@ pub mod math;
 pub mod noise;
 pub mod ray;
 pub mod skybox;
+pub mod texgen;
 pub mod texture;
 
 /// Version del proyecto, tomada de Cargo.toml.
