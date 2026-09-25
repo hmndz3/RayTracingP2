@@ -9,6 +9,7 @@ pub mod camera;
 pub mod geometry;
 pub mod image;
 pub mod math;
+pub mod noise;
 pub mod ray;
 
 /// Version del proyecto, tomada de Cargo.toml.
