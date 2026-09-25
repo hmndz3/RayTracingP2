@@ -18,6 +18,10 @@ MODOS:
 OPCIONES GENERALES:
   --assets <dir>      Carpeta de recursos (por omision: assets)
   -h, --help          Muestra esta ayuda
+
+OPCIONES DE textures:
+  --previews <dir>    Escribe ademas cada textura ampliada como PNG, para
+                      poder revisarla a simple vista
 ";
 
 fn main() -> ExitCode {
@@ -29,6 +33,7 @@ fn main() -> ExitCode {
 
     let modo = argumentos[0].clone();
     let mut assets = PathBuf::from("assets");
+    let mut previews: Option<PathBuf> = None;
     let mut i = 1;
     while i < argumentos.len() {
         match argumentos[i].as_str() {
@@ -38,6 +43,16 @@ fn main() -> ExitCode {
                     Some(v) => assets = PathBuf::from(v),
                     None => {
                         eprintln!("error: --assets necesita una ruta");
+                        return ExitCode::FAILURE;
+                    }
+                }
+            }
+            "--previews" => {
+                i += 1;
+                match argumentos.get(i) {
+                    Some(v) => previews = Some(PathBuf::from(v)),
+                    None => {
+                        eprintln!("error: --previews necesita una ruta");
                         return ExitCode::FAILURE;
                     }
                 }
@@ -63,6 +78,15 @@ fn main() -> ExitCode {
                     assets.display(),
                     total as f64 / 1024.0
                 );
+                if let Some(dir) = previews {
+                    match abadia::texgen::write_previews(&assets, &dir, 6) {
+                        Ok(n) => println!("{} laminas PNG en {}", n.len(), dir.display()),
+                        Err(e) => {
+                            eprintln!("error escribiendo laminas: {e}");
+                            return ExitCode::FAILURE;
+                        }
+                    }
+                }
                 ExitCode::SUCCESS
             }
             Err(e) => {

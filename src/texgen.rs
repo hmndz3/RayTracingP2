@@ -110,7 +110,7 @@ fn ashlar(u: f64, v: f64, size: f64, cols: f64, rows: f64) -> (f64, f64, f64, f6
 
 /// Piedra antigua de los muros: sillares azul grisaceos con junta de mortero.
 fn stone_ancient_albedo(u: f64, v: f64) -> Vec3 {
-    let (id, lu, lv, junta) = ashlar(u, v, TEX_SIZE as f64, 2.0, 4.0);
+    let (id, _lu, lv, junta) = ashlar(u, v, TEX_SIZE as f64, 2.0, 4.0);
     let mortero = v3(0.128, 0.140, 0.162);
     let base = v3(0.300, 0.340, 0.398);
 
@@ -122,7 +122,7 @@ fn stone_ancient_albedo(u: f64, v: f64) -> Vec3 {
     // Variacion por sillar, para que un muro largo no parezca una sola losa.
     let mut c = base * (0.84 + 0.30 * id);
     // Grano fino y algunas picaduras.
-    let grano = fbm2(u * 46.0, v * 46.0, 0x1234, 3, 2.0, 0.55);
+    let grano = fbm2(u * 13.0, v * 13.0, 0x1234, 3, 2.0, 0.55);
     c *= 0.86 + 0.28 * grano;
     let picadura = cell2(u * 11.0, v * 11.0, 0x99AA);
     if picadura.distance < 0.14 {
@@ -141,15 +141,17 @@ fn stone_ancient_height(x: usize, y: usize) -> f64 {
     let u = (x as f64 + 0.5) / TEX_SIZE as f64;
     let v = (y as f64 + 0.5) / TEX_SIZE as f64;
     let (id, _, _, junta) = ashlar(u, v, TEX_SIZE as f64, 2.0, 4.0);
-    if junta < 1.0 {
-        return 0.0;
-    }
-    // El sillar sobresale, con un bisel de un pixel y su propio relieve.
-    let bisel = smoothstep(junta / 2.2);
-    let relieve = fbm2(u * 38.0, v * 38.0, 0x1234, 3, 2.0, 0.55);
+    // El sillar sobresale sobre el mortero con un bisel de poco mas de un pixel.
+    // No hay corte abrupto en la junta: un escalon de altura en un solo texel
+    // haria que la diferencia central saturase la normal en toda la retícula de
+    // juntas, y el mapa se leeria como grano en vez de como relieve.
+    let bisel = smoothstep(junta / 1.15);
+    let relieve = fbm2(u * 7.0, v * 7.0, 0x1234, 3, 2.0, 0.55);
+    // La picadura se hunde de forma suave: un escalon duro produciria un
+    // gradiente enorme y el mapa normal saldria saturado en ese texel.
     let picadura = cell2(u * 11.0, v * 11.0, 0x99AA);
-    let hueco = if picadura.distance < 0.14 { 0.35 } else { 0.0 };
-    (0.55 + 0.20 * id) * bisel + 0.28 * relieve - hueco
+    let hueco = smoothstep((0.14 - picadura.distance) / 0.14) * 0.14;
+    (0.55 + 0.20 * id) * bisel + 0.11 * relieve - hueco
 }
 
 /// Losa del camino y del suelo interior: piedra irregular, mas calida.
@@ -171,7 +173,7 @@ fn stone_floor_height(x: usize, y: usize) -> f64 {
     let v = (y as f64 + 0.5) / TEX_SIZE as f64;
     let c = cell2(u * 3.4, v * 3.4, 0x2BAD);
     let losa = smoothstep(c.border / 0.13);
-    losa * (0.55 + 0.25 * c.id) + 0.22 * fbm2(u * 30.0, v * 30.0, 0x5150, 3, 2.0, 0.5)
+    losa * (0.55 + 0.25 * c.id) + 0.14 * fbm2(u * 6.0, v * 6.0, 0x5150, 3, 2.0, 0.5)
 }
 
 /// Escombro y lapidas: piedra mas clara, rota y desgastada.
@@ -194,7 +196,7 @@ fn stone_rubble_height(x: usize, y: usize) -> f64 {
     let v = (y as f64 + 0.5) / TEX_SIZE as f64;
     let c = cell2(u * 5.2, v * 5.2, 0x3C3C);
     smoothstep(c.border / 0.10) * (0.5 + 0.3 * c.id)
-        + 0.34 * fbm2(u * 26.0, v * 26.0, 0x6161, 4, 2.0, 0.5)
+        + 0.18 * fbm2(u * 7.0, v * 7.0, 0x6161, 4, 2.0, 0.5)
 }
 
 /// Madera envejecida de vigas, pasarela y portones.
@@ -240,12 +242,11 @@ fn wood_aged_height(x: usize, y: usize) -> f64 {
     let fila = (v * tablas).floor();
     let lv = v * tablas - fila;
     let separacion = lv.min(1.0 - lv) * (TEX_SIZE as f64 / tablas);
-    if separacion < 0.9 {
-        return 0.0;
-    }
     let id = crate::math::hash01_3(0, fila as i64, 0, 0xBEEF);
-    let veta = ridged2(u * 3.0 + id * 7.0, v * 30.0, 0xD00D, 4);
-    smoothstep(separacion / 2.0) * 0.55 + 0.45 * veta
+    let veta = ridged2(u * 3.0 + id * 7.0, v * 9.0, 0xD00D, 4);
+    // La junta entre tablas baja de forma continua, por la misma razon que en la
+    // piedra: un corte seco satura la normal en la linea de separacion.
+    smoothstep(separacion / 1.3) * 0.62 + 0.16 * veta
 }
 
 /// Tierra con musgo: la capa superior del terreno.
@@ -275,7 +276,7 @@ fn earth_moss_albedo(u: f64, v: f64) -> Vec3 {
 fn earth_moss_height(x: usize, y: usize) -> f64 {
     let u = (x as f64 + 0.5) / TEX_SIZE as f64;
     let v = (y as f64 + 0.5) / TEX_SIZE as f64;
-    let grumo = fbm2(u * 16.0, v * 16.0, 0x1111, 4, 2.1, 0.55);
+    let grumo = fbm2(u * 6.0, v * 6.0, 0x1111, 4, 2.1, 0.55);
     let piedra = cell2(u * 9.0, v * 9.0, 0x3333);
     let bulto = if piedra.distance < 0.13 {
         smoothstep((0.13 - piedra.distance) / 0.09) * 0.7
@@ -396,8 +397,8 @@ fn stained_glass_albedo(u: f64, v: f64) -> Vec3 {
 
 /// Metal envejecido del escudo y de los herrajes.
 fn metal_aged_albedo(u: f64, v: f64) -> Vec3 {
-    let bronce = v3(0.560, 0.452, 0.268);
-    let bronce_oscuro = v3(0.300, 0.240, 0.140);
+    let bronce = v3(0.700, 0.500, 0.240);
+    let bronce_oscuro = v3(0.330, 0.216, 0.100);
     let patina = v3(0.140, 0.300, 0.260);
 
     let pulido = fbm2(u * 9.0, v * 9.0, 0xB0B0, 3, 2.0, 0.55);
@@ -439,7 +440,7 @@ fn metal_aged_height(x: usize, y: usize) -> f64 {
     } else {
         0.0
     };
-    0.35 * fbm2(u * 10.0, v * 10.0, 0xB0B0, 3, 2.0, 0.55) + hueco + bulto
+    0.22 * fbm2(u * 5.0, v * 5.0, 0xB0B0, 3, 2.0, 0.55) + hueco + bulto
 }
 
 /// Farol emisivo: nucleo caliente tras una celosia metalica.
@@ -512,31 +513,31 @@ fn recursos() -> Vec<Recurso> {
             nombre: "stone_ancient",
             tamano: TEX_SIZE,
             albedo: stone_ancient_albedo,
-            normal: Some((stone_ancient_height, 9.0)),
+            normal: Some((stone_ancient_height, 3.2)),
         },
         Recurso {
             nombre: "stone_floor",
             tamano: TEX_SIZE,
             albedo: stone_floor_albedo,
-            normal: Some((stone_floor_height, 7.0)),
+            normal: Some((stone_floor_height, 2.8)),
         },
         Recurso {
             nombre: "stone_rubble",
             tamano: TEX_SIZE,
             albedo: stone_rubble_albedo,
-            normal: Some((stone_rubble_height, 8.0)),
+            normal: Some((stone_rubble_height, 2.8)),
         },
         Recurso {
             nombre: "wood_aged",
             tamano: TEX_SIZE,
             albedo: wood_aged_albedo,
-            normal: Some((wood_aged_height, 6.0)),
+            normal: Some((wood_aged_height, 2.6)),
         },
         Recurso {
             nombre: "earth_moss",
             tamano: TEX_SIZE,
             albedo: earth_moss_albedo,
-            normal: Some((earth_moss_height, 6.5)),
+            normal: Some((earth_moss_height, 3.0)),
         },
         Recurso {
             nombre: "earth_dark",
@@ -560,7 +561,7 @@ fn recursos() -> Vec<Recurso> {
             nombre: "metal_aged",
             tamano: TEX_SIZE,
             albedo: metal_aged_albedo,
-            normal: Some((metal_aged_height, 3.0)),
+            normal: Some((metal_aged_height, 2.2)),
         },
         Recurso {
             nombre: "lantern_glow",
@@ -581,6 +582,49 @@ fn recursos() -> Vec<Recurso> {
             normal: None,
         },
     ]
+}
+
+/// Escala una imagen por un factor entero repitiendo texels.
+///
+/// Se usa solo para las laminas de documentacion: repetir el texel es la unica
+/// ampliacion que no traiciona el aspecto pixelado del original.
+pub fn scale_nearest(img: &Image, factor: usize) -> Image {
+    let mut salida = Image::new(img.width * factor, img.height * factor);
+    for y in 0..salida.height {
+        for x in 0..salida.width {
+            salida.set(x, y, img.get(x / factor, y / factor));
+        }
+    }
+    salida
+}
+
+/// Escribe cada textura ampliada como PNG, para poder mirarlas e incluirlas en la
+/// documentacion.
+pub fn write_previews(
+    assets: &Path,
+    destino: &Path,
+    factor: usize,
+) -> std::io::Result<Vec<String>> {
+    std::fs::create_dir_all(destino)?;
+    let dir_tex = assets.join("textures");
+    let mut nombres = Vec::new();
+    for r in recursos() {
+        let mut ficheros = vec![r.nombre.to_string()];
+        if r.normal.is_some() {
+            ficheros.push(format!("{}_n", r.nombre));
+        }
+        for f in ficheros {
+            let img = Image::read_ppm(dir_tex.join(format!("{f}.ppm")))?;
+            let ampliada = scale_nearest(&img, factor);
+            ampliada.write_png(destino.join(format!("{f}.png")))?;
+            nombres.push(format!("{f}.png"));
+        }
+    }
+    // Una cara del cielo, a tamano natural, como muestra del cubemap.
+    let cielo = Image::read_ppm(assets.join("skybox").join("sky_neg_x.ppm"))?;
+    cielo.write_png(destino.join("sky_neg_x.png"))?;
+    nombres.push("sky_neg_x.png".to_string());
+    Ok(nombres)
 }
 
 /// Genera todos los recursos y los escribe bajo `assets/`.
@@ -815,14 +859,21 @@ mod tests {
                 }
             }
             let n = (r.tamano * r.tamano) as f64;
-            // Tiene relieve de verdad, pero no tanto como para parecer ruido.
+            // Tiene relieve de verdad, pero no tanto como para parecer ruido. El
+            // tope superior es tan importante como el inferior: un mapa saturado
+            // en todos los texels no se lee como relieve, se lee como grano.
+            let inclinacion = desviacion / n;
             assert!(
-                desviacion / n > 0.05,
-                "{} apenas tiene relieve: {:.3}",
-                r.nombre,
-                desviacion / n
+                inclinacion > 0.05,
+                "{} apenas tiene relieve: {inclinacion:.3}",
+                r.nombre
             );
-            assert!(suma_z / n > 0.5, "{} esta demasiado abollada", r.nombre);
+            assert!(
+                inclinacion < 0.40,
+                "{} esta saturada de relieve: {inclinacion:.3}",
+                r.nombre
+            );
+            assert!(suma_z / n > 0.80, "{} esta demasiado abollada", r.nombre);
         }
     }
 

@@ -78,11 +78,14 @@ pub fn sky_radiance(dir: Vec3) -> Vec3 {
     }
 
     // Por debajo del horizonte, bruma indigo: el diorama flota y hace falta que
-    // su silueta se apoye en algo, no en negro puro.
-    if altura < 0.0 {
-        let profundidad = smoothstep(-altura / 0.45);
-        let bruma = v3(0.0620, 0.0660, 0.0980).lerp(v3(0.0110, 0.0130, 0.0270), profundidad);
-        color = bruma.lerp(color, (1.0 - profundidad) * 0.35);
+    // su silueta se apoye en algo, no en negro puro. La mezcla arranca justo por
+    // encima del horizonte y crece de forma continua, porque cualquier salto en
+    // `altura = 0` se ve como una linea recta cruzando el cielo.
+    let profundidad = smoothstep((-altura + 0.03) / 0.30);
+    if profundidad > 0.0 {
+        let lejania = smoothstep(-altura / 0.55);
+        let bruma = v3(0.0700, 0.0740, 0.1060).lerp(v3(0.0190, 0.0210, 0.0390), lejania);
+        color = color.lerp(bruma, profundidad * 0.88);
     }
 
     color.max_elem(Vec3::ZERO)
