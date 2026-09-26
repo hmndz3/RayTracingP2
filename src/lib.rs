@@ -14,6 +14,7 @@ pub mod material;
 pub mod math;
 pub mod noise;
 pub mod ray;
+pub mod renderer;
 pub mod skybox;
 pub mod texgen;
 pub mod texture;
