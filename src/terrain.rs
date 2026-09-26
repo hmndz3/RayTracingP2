@@ -85,8 +85,8 @@ impl Default for TerrainSpec {
             foundation: Rect::new(9, 12, 22, 22),
             // El estanque queda en primer plano, delante de la fachada.
             pond_center: (9.0, 6.0),
-            pond_radius: 4.6,
-            pond_depth: 3.2,
+            pond_radius: 5.4,
+            pond_depth: 3.8,
             vegetation_density: 0.13,
             debris_density: 0.05,
         }

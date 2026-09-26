@@ -144,7 +144,7 @@ pub struct MaterialSet {
 /// Se declara aqui porque tanto el material como el constructor de la escena
 /// tienen que estar de acuerdo: el material estira el dibujo sobre este
 /// rectangulo y la escena coloca los bloques de vidrio justo dentro de el.
-pub const VITRAL_ORIGEN: Vec3 = v3(11.0, 16.0, 15.0);
+pub const VITRAL_ORIGEN: Vec3 = v3(11.0, 19.0, 12.0);
 /// Anchura del vitral en bloques.
 pub const VITRAL_ANCHO: f64 = 5.0;
 /// Altura del vitral en bloques.
