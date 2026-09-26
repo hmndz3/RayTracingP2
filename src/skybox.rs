@@ -16,12 +16,12 @@ use crate::texture::Texture;
 ///
 /// Azimut de unos -70 grados y elevacion de 14. La eleccion no es arbitraria: con
 /// la vista inicial son visibles las caras `-X`, `+Y` y `+Z`, y esta direccion
-/// ilumina de frente las `-X` mientras roza las `+Y` y las `+Z`. Ese rasado es lo
+/// ilumina de frente las `-X` mientras roza las `+Y` y las `-Z`. Ese rasado es lo
 /// que hace legible el relieve de los mapas normales sobre la piedra.
-pub const SUN_DIR: Vec3 = v3(-0.9106, 0.2419, 0.3321);
+pub const SUN_DIR: Vec3 = v3(-0.9106, 0.2419, -0.3321);
 
 /// Direccion hacia la luna, que da el contrapunto frio al ambar del poniente.
-pub const MOON_DIR: Vec3 = v3(0.3827, 0.5736, -0.7244);
+pub const MOON_DIR: Vec3 = v3(0.5930, 0.5450, 0.5930);
 
 /// Semilla del cielo. Se fija aparte de la del terreno para que cambiar el relieve
 /// no cambie tambien las estrellas.

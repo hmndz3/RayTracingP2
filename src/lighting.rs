@@ -14,7 +14,16 @@ use crate::geometry::{face_axis, face_normal, Hit, FACE_TANGENTS};
 use crate::material::{Material, MaterialSet, AIR};
 use crate::math::{v3, Onb, Rng, Vec3};
 use crate::ray::{offset_ray, Interval, Medium, Ray};
-use crate::skybox::{Skybox, MOON_DIR, SUN_DIR};
+use crate::skybox::{Skybox, SUN_DIR};
+
+/// Direccion del relleno frio.
+///
+/// No coincide con la de la luna a proposito. La luna esta detras de la abadia y
+/// desde ahi solo rozaria caras que la camara no ve; el relleno tiene que
+/// levantar las caras visibles que el sol apenas alcanza, asi que viene de muy
+/// arriba y ligeramente del lado del espectador. La luna sigue siendo su
+/// justificacion visual en el cielo, no su direccion.
+pub const FILL_DIR: Vec3 = v3(-0.3055, 0.8757, -0.4174);
 
 /// Luz direccional: el sol poniente y el relleno frio de la luna.
 #[derive(Debug, Clone, Copy)]
@@ -95,7 +104,7 @@ impl Lighting {
                 casts_shadow: true,
             },
             fill: DirectionalLight {
-                direction: MOON_DIR.normalized(),
+                direction: FILL_DIR.normalized(),
                 color: v3(0.310, 0.395, 0.620) * 0.46,
                 casts_shadow: false,
             },
