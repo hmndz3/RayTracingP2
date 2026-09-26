@@ -9,6 +9,7 @@ pub mod acceleration;
 pub mod camera;
 pub mod geometry;
 pub mod image;
+pub mod lighting;
 pub mod material;
 pub mod math;
 pub mod noise;
