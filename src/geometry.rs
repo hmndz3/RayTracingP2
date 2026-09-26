@@ -356,8 +356,7 @@ mod tests {
 
     #[test]
     fn las_seis_bases_tangentes_son_derechas() {
-        for face in 0..6 {
-            let (t, b) = FACE_TANGENTS[face];
+        for (face, &(t, b)) in FACE_TANGENTS.iter().enumerate() {
             let n = face_normal(face);
             assert!((t.cross(b) - n).length() < 1e-12, "cara {face}");
             assert!(t.dot(b).abs() < 1e-12);
@@ -371,8 +370,7 @@ mod tests {
         // Comprobacion numerica: mover el punto en la direccion de la tangente
         // debe aumentar u y dejar v igual.
         let h = 1e-4;
-        for face in 0..6 {
-            let (t, b) = FACE_TANGENTS[face];
+        for (face, &(t, b)) in FACE_TANGENTS.iter().enumerate() {
             let centro = v3(0.5, 0.5, 0.5);
             let (u0, v0) = face_uv(face, centro);
             let (u1, v1) = face_uv(face, centro + t * h);
@@ -392,7 +390,7 @@ mod tests {
 
     #[test]
     fn las_uv_cubren_la_cara_completa_sin_salirse() {
-        for face in 0..6 {
+        for face in 0..FACE_TANGENTS.len() {
             for &x in &[0.0, 0.5, 1.0] {
                 for &y in &[0.0, 0.5, 1.0] {
                     for &z in &[0.0, 0.5, 1.0] {

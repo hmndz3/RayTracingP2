@@ -179,7 +179,7 @@ fn stone_floor_height(x: usize, y: usize) -> f64 {
 /// Escombro y lapidas: piedra mas clara, rota y desgastada.
 fn stone_rubble_albedo(u: f64, v: f64) -> Vec3 {
     let c = cell2(u * 5.2, v * 5.2, 0x3C3C);
-    let base = v3(0.318, 0.322, 0.336).lerp(v3(0.404, 0.392, 0.372), c.id);
+    let base = v3(0.320, 0.322, 0.336).lerp(v3(0.404, 0.392, 0.372), c.id);
     let grano = fbm2(u * 52.0, v * 52.0, 0x6161, 4, 2.0, 0.5);
     let mut color = base * (0.80 + 0.36 * grano);
     // Aristas descantilladas: el borde de cada fragmento aclara.
@@ -356,7 +356,7 @@ fn stained_glass_albedo(u: f64, v: f64) -> Vec3 {
         let indice = s.floor() as i64;
         let ls = s - s.floor();
         // Nervio de plomo entre petalos y aro exterior del rosetón.
-        if ls < 0.06 || ls > 0.94 || r > 0.285 || (r - 0.155).abs() < 0.012 {
+        if !(0.06..=0.94).contains(&ls) || r > 0.285 || (r - 0.155).abs() < 0.012 {
             return plomo;
         }
         let anillo_exterior = r > 0.155;
@@ -503,8 +503,11 @@ struct Recurso {
     tamano: usize,
     albedo: fn(f64, f64) -> Vec3,
     /// Campo de altura y fuerza del relieve, si el material lleva mapa normal.
-    normal: Option<(fn(usize, usize) -> f64, f64)>,
+    normal: Option<Relieve>,
 }
+
+/// Campo de altura de un material y la fuerza con la que se convierte en normal.
+type Relieve = (fn(usize, usize) -> f64, f64);
 
 /// Todos los recursos de material del proyecto.
 fn recursos() -> Vec<Recurso> {

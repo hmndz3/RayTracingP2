@@ -501,6 +501,9 @@ pub fn deflate_fixed(datos: &[u8]) -> Vec<u8> {
             }
 
             // Insertar todas las posiciones cubiertas mantiene la tabla al dia.
+            // El indice hace falta de verdad: en cada vuelta se leen tres bytes a
+            // partir de `p`, se encadena `prev[p]` y se actualiza `head`.
+            #[allow(clippy::needless_range_loop)]
             for p in pos..pos + mejor_len {
                 if p + MIN_MATCH <= n {
                     let h = hash3(datos, p);
