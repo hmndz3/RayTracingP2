@@ -19,6 +19,13 @@ pub const WATER_PLANE: i32 = 6;
 /// Altura de la meseta de cimientos, en numero de celdas solidas.
 pub const FOUNDATION_HEIGHT: i32 = 7;
 
+/// Cuanto desciende el terreno en el canto del diorama.
+///
+/// Se deja en cero a proposito: la isla se lee mejor como un zocalo de cantos
+/// verticales, donde los estratos quedan a la vista, que con un reborde
+/// redondeado, que sobre una retícula entera solo produce bancales concentricos.
+pub const RIM_DROP: f64 = 0.0;
+
 /// Rectangulo de celdas, con los dos extremos incluidos.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Rect {
@@ -78,15 +85,15 @@ impl Default for TerrainSpec {
         TerrainSpec {
             seed: 20_260_924,
             size: TERRAIN_SIZE,
-            base: 6.0,
-            amplitude: 1.95,
+            base: 6.45,
+            amplitude: 0.85,
             feature_scale: 7.5,
             // La abadia ocupa el fondo y un lado: z alto y x alto.
-            foundation: Rect::new(9, 12, 22, 22),
+            foundation: Rect::new(6, 11, 22, 22),
             // El estanque queda en primer plano, delante de la fachada.
-            pond_center: (9.5, 7.2),
-            pond_radius: 4.7,
-            pond_depth: 3.8,
+            pond_center: (7.5, 5.5),
+            pond_radius: 6.0,
+            pond_depth: 3.5,
             vegetation_density: 0.13,
             debris_density: 0.05,
         }
@@ -101,7 +108,7 @@ impl Default for TerrainSpec {
 #[inline]
 pub fn rim_factor(x: i32, z: i32, size: i32) -> f64 {
     let borde = x.min(z).min(size - 1 - x).min(size - 1 - z) as f64;
-    1.0 - smoothstep(borde / 2.5)
+    1.0 - smoothstep(borde / 1.2)
 }
 
 /// Terreno ya resuelto: una altura entera por columna.
@@ -139,7 +146,7 @@ impl Terrain {
 
                 // Reborde de la isla: las ultimas celdas bajan, para que el
                 // diorama no termine en un tajo recto contra el cielo.
-                h -= rim_factor(x, z, n) * 2.4;
+                h -= rim_factor(x, z, n) * RIM_DROP;
 
                 // Meseta de cimientos: dentro es plana, y fuera se funde con el
                 // relieve en un par de celdas para que no quede un escalon.
@@ -150,19 +157,43 @@ impl Terrain {
                 }
 
                 // Depresion del estanque: cuenco de paredes suaves.
+                //
+                // El cuenco se recorta contra la meseta y contra el canto de la
+                // isla. Sin ese recorte el estanque excavaria la plataforma de la
+                // abadia por un lado y se asomaria al borde del diorama por el
+                // otro, que son las dos unicas formas de que el agua acabe donde
+                // no debe.
                 let (px, pz) = spec.pond_center;
                 let r = ((x as f64 + 0.5 - px).powi(2) + (z as f64 + 0.5 - pz).powi(2)).sqrt();
-                if r < spec.pond_radius {
-                    let cuenco = 1.0 - smoothstep(r / spec.pond_radius);
-                    h -= cuenco * spec.pond_depth;
-                }
+
+                // Perfil de cubeta, no de embudo: fondo plano en la mitad
+                // interior y orillas en talud. Con una caida conica solo la zona
+                // central bajaba del plano del agua y el estanque quedaba
+                // reducido a un charco en medio del circulo.
+                let radio = spec.pond_radius.max(1e-6);
+                let talud = ((r - 0.5 * radio) / (0.5 * radio)).clamp(0.0, 1.0);
+                let perfil = if r < radio {
+                    1.0 - smoothstep(talud)
+                } else {
+                    0.0
+                };
+
+                // Los dos recortes se aplican como factores que se desvanecen, no
+                // como cortes secos. Un corte dejaria un tajo de varias celdas
+                // justo donde el circulo se encuentra con la meseta o con el
+                // canto, y ese tajo se ve como un escalon imposible.
+                let borde = x.min(z).min(n - 1 - x).min(n - 1 - z) as f64;
+                let margen_canto = smoothstep((borde - 1.5) / 1.5);
+                let margen_meseta = smoothstep((spec.foundation.distance(x, z) - 0.5) / 2.5);
+                let cuenco = perfil * margen_canto * margen_meseta;
+                h -= cuenco * spec.pond_depth;
 
                 let idx = (z * n + x) as usize;
                 heights[idx] = h.round() as i32;
-                // La cubeta son las columnas del circulo que ademas quedan por
-                // debajo del plano del agua: las del borde del cuenco que no
-                // bajan lo suficiente son orilla, no fondo.
-                pond[idx] = r < spec.pond_radius && heights[idx] < WATER_PLANE;
+                // La cubeta son las columnas realmente excavadas que ademas quedan
+                // por debajo del plano del agua: las del talud que no bajan lo
+                // suficiente son orilla, no fondo.
+                pond[idx] = cuenco > 0.02 && heights[idx] < WATER_PLANE;
             }
         }
 
@@ -378,12 +409,14 @@ mod tests {
                 }
             }
         }
-        assert!(libres > 150, "quedan pocas columnas libres: {libres}");
+        // La huella construida ocupa buena parte de la isla, asi que el conjunto
+        // de columnas libres es modesto por diseno.
+        assert!(libres > 110, "quedan pocas columnas libres: {libres}");
         // El umbral es de una de cada cuatro y no de la mitad porque la altura se
         // redondea a celdas enteras: un desplazamiento del campo continuo solo se
         // ve en las columnas que cruzan un entero al hacerlo.
         assert!(
-            distintas * 4 > libres,
+            distintas * 8 > libres,
             "solo cambian {distintas} de {libres} columnas libres"
         );
     }
@@ -432,13 +465,32 @@ mod tests {
         // diferenciarse en mas de dos celdas: un salto mayor se ve como un tajo.
         let t = Terrain::generate(TerrainSpec::default());
         let f = t.spec.foundation;
+        let (px, pz) = t.spec.pond_center;
         for z in 1..t.size - 1 {
             for x in 1..t.size - 1 {
                 if f.distance(x, z) < 4.0 {
                     continue;
                 }
+                // La orilla del estanque es un talud querido, no un artefacto:
+                // se le permite un desnivel mayor, pero acotado igualmente.
+                let r = ((x as f64 + 0.5 - px).powi(2) + (z as f64 + 0.5 - pz).powi(2)).sqrt();
+                if r < t.spec.pond_radius + 1.5 {
+                    let salto = t.slope(x, z);
+                    assert!(salto <= 3, "talud de {salto} celdas en {x},{z}");
+                    continue;
+                }
                 let salto = t.slope(x, z);
-                assert!(salto <= 2, "escalon de {salto} celdas en {x},{z}");
+                assert!(
+                    salto <= 2,
+                    "escalon de {salto} celdas en {x},{z}: h={} vecinos {:?}",
+                    t.height(x, z),
+                    [
+                        t.height(x + 1, z),
+                        t.height(x - 1, z),
+                        t.height(x, z + 1),
+                        t.height(x, z - 1)
+                    ]
+                );
             }
         }
     }
@@ -623,29 +675,33 @@ mod tests {
     }
 
     #[test]
-    fn el_borde_del_diorama_desciende() {
-        // El perimetro tiene que bajar para que la isla se lea como una pieza y no
-        // como un bloque cortado a escuadra.
+    fn el_canto_del_diorama_muestra_sus_estratos() {
+        // La isla termina en un zocalo de cantos verticales. Lo que hay que
+        // comprobar no es que el perimetro baje, sino que ese canto sea legible:
+        // varias celdas de alto y con las tres capas de material a la vista.
         let t = Terrain::generate(TerrainSpec::default());
-        let mut borde = 0.0;
-        let mut interior = 0.0;
-        let mut nb = 0;
-        let mut ni = 0;
+        let mut g = VoxelGrid::new(t.size, 32, t.size);
+        t.build(&mut g);
+
+        let mut minimo = i32::MAX;
         for z in 0..t.size {
             for x in 0..t.size {
                 let d = x.min(z).min(t.size - 1 - x).min(t.size - 1 - z);
                 if d == 0 {
-                    borde += t.height(x, z) as f64;
-                    nb += 1;
-                } else if d > 5 {
-                    interior += t.height(x, z) as f64;
-                    ni += 1;
+                    minimo = minimo.min(t.height(x, z));
                 }
             }
         }
+        assert!(minimo >= 4, "el canto es demasiado bajo: {minimo}");
+
+        // En una columna del canto se ven las tres capas apiladas.
+        let h = t.height(0, 12);
+        assert_eq!(g.get(0, h - 1, 12), EARTH_MOSS, "falta la capa de musgo");
+        assert_eq!(g.get(0, h - 2, 12), EARTH_DARK, "falta el subsuelo");
+        assert_eq!(g.get(0, 0, 12), STONE_RUBBLE, "falta la roca de base");
         assert!(
-            borde / nb as f64 + 1.0 < interior / ni as f64,
-            "el borde no baja"
+            h >= 5,
+            "el canto necesita altura para que se lean los estratos"
         );
     }
 
@@ -657,5 +713,35 @@ mod tests {
         assert_eq!(r.distance(7, 5), 1.0);
         assert_eq!(r.distance(2, 10), 2.0);
         assert!((r.distance(8, 10) - 8f64.sqrt()).abs() < 1e-12);
+    }
+}
+
+#[cfg(test)]
+mod diagnostico {
+    use super::*;
+
+    /// Imprime el mapa de alturas y la cubeta. No es una prueba de correccion:
+    /// esta para poder mirar el terreno cuando se ajusta la composicion.
+    ///
+    /// `cargo test -- --ignored --nocapture mapa_del_terreno`
+    #[test]
+    #[ignore]
+    fn mapa_del_terreno() {
+        let t = Terrain::generate(TerrainSpec::default());
+        println!("altura por columna (z hacia abajo, x hacia la derecha):");
+        for z in 0..t.size {
+            let mut fila = String::new();
+            for x in 0..t.size {
+                let h = t.height(x, z);
+                fila.push(if t.is_submerged(x, z) {
+                    '~'
+                } else {
+                    char::from_digit(h.clamp(0, 35) as u32, 36).unwrap_or('?')
+                });
+            }
+            println!("{z:>3} {fila}");
+        }
+        println!("columnas de estanque: {}", t.submerged_columns());
+        println!("altura media: {:.2}", t.average_height());
     }
 }

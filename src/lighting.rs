@@ -100,15 +100,15 @@ impl Lighting {
         Lighting {
             key: DirectionalLight {
                 direction: SUN_DIR.normalized(),
-                color: v3(1.00, 0.615, 0.330) * 2.05,
+                color: v3(1.00, 0.600, 0.315) * 1.42,
                 casts_shadow: true,
             },
             fill: DirectionalLight {
                 direction: FILL_DIR.normalized(),
-                color: v3(0.310, 0.395, 0.620) * 0.46,
+                color: v3(0.290, 0.380, 0.630) * 0.40,
                 casts_shadow: false,
             },
-            ambient: 0.85,
+            ambient: 0.62,
             emitters,
             max_emitter_lights: 4,
             emitter_samples: 2,

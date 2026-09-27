@@ -148,7 +148,7 @@ pub const VITRAL_ORIGEN: Vec3 = v3(11.0, 19.0, 12.0);
 /// Anchura del vitral en bloques.
 pub const VITRAL_ANCHO: f64 = 5.0;
 /// Altura del vitral en bloques.
-pub const VITRAL_ALTO: f64 = 6.0;
+pub const VITRAL_ALTO: f64 = 5.0;
 
 impl MaterialSet {
     /// Carga las texturas de `assets/textures` y construye los materiales.

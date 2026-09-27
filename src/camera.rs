@@ -55,11 +55,11 @@ impl Camera {
     /// faroles encendidos, todo dentro del encuadre desde el primer fotograma.
     pub fn initial() -> Camera {
         Camera {
-            target: v3(12.0, 9.0, 13.0),
-            yaw: -152.0,
-            pitch: 17.0,
-            distance: 31.0,
-            vfov: 42.0,
+            target: v3(11.0, 8.5, 11.0),
+            yaw: -147.0,
+            pitch: 13.0,
+            distance: 38.0,
+            vfov: 40.0,
         }
     }
 
@@ -171,78 +171,79 @@ pub struct TourKey {
 /// Recorrido de demostracion: cada tramo enmarca una de las evidencias visuales
 /// que el proyecto tiene que mostrar, en el orden en que aparecen en el guion.
 pub fn tour_keys() -> Vec<TourKey> {
-    let centro = v3(12.0, 9.0, 13.0);
-    let estanque = v3(10.0, 6.5, 7.0);
-    let vitral = v3(14.0, 12.0, 15.0);
-    let altar = v3(14.5, 9.5, 18.0);
+    let centro = v3(11.0, 8.5, 11.0);
+    let estanque = v3(7.5, 6.0, 6.0);
+    let vitral = v3(13.0, 15.0, 12.0);
+    let altar = v3(13.0, 9.5, 19.0);
+    let muro = v3(9.0, 10.0, 13.0);
     vec![
         TourKey {
-            yaw: -152.0,
-            pitch: 17.0,
-            distance: 31.0,
+            yaw: -147.0,
+            pitch: 13.0,
+            distance: 38.0,
             target: centro,
             label: "vista-general",
         },
         TourKey {
-            yaw: -90.0,
-            pitch: 21.0,
-            distance: 32.0,
+            yaw: -95.0,
+            pitch: 17.0,
+            distance: 38.0,
             target: centro,
             label: "rotacion",
         },
         TourKey {
-            yaw: -62.0,
-            pitch: 30.0,
-            distance: 46.0,
+            yaw: -60.0,
+            pitch: 27.0,
+            distance: 52.0,
             target: centro,
             label: "alejamiento",
         },
         TourKey {
-            yaw: -118.0,
-            pitch: 9.0,
-            distance: 21.0,
+            yaw: -168.0,
+            pitch: 8.0,
+            distance: 22.0,
             target: estanque,
             label: "agua-refraccion",
         },
         TourKey {
-            yaw: -138.0,
-            pitch: 12.0,
-            distance: 19.0,
+            yaw: -150.0,
+            pitch: 10.0,
+            distance: 20.0,
             target: vitral,
             label: "vitral",
         },
         TourKey {
-            yaw: -176.0,
-            pitch: 10.0,
-            distance: 20.0,
-            target: v3(11.0, 10.0, 12.0),
+            yaw: -196.0,
+            pitch: 9.0,
+            distance: 19.0,
+            target: muro,
             label: "piedra-mapa-normal",
         },
         TourKey {
-            yaw: -132.0,
+            yaw: -230.0,
             pitch: 8.0,
-            distance: 18.0,
+            distance: 20.0,
             target: altar,
             label: "emisores",
         },
         TourKey {
-            yaw: -204.0,
-            pitch: 46.0,
-            distance: 52.0,
+            yaw: -268.0,
+            pitch: 44.0,
+            distance: 54.0,
             target: centro,
             label: "skybox",
         },
         TourKey {
-            yaw: -264.0,
+            yaw: -330.0,
             pitch: 58.0,
-            distance: 50.0,
-            target: v3(12.0, 6.0, 12.0),
+            distance: 52.0,
+            target: v3(11.0, 6.0, 11.0),
             label: "terreno",
         },
         TourKey {
-            yaw: -332.0,
-            pitch: 18.0,
-            distance: 31.0,
+            yaw: -387.0,
+            pitch: 13.0,
+            distance: 38.0,
             target: centro,
             label: "cierre",
         },

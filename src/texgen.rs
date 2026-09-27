@@ -111,8 +111,8 @@ fn ashlar(u: f64, v: f64, size: f64, cols: f64, rows: f64) -> (f64, f64, f64, f6
 /// Piedra antigua de los muros: sillares azul grisaceos con junta de mortero.
 fn stone_ancient_albedo(u: f64, v: f64) -> Vec3 {
     let (id, _lu, lv, junta) = ashlar(u, v, TEX_SIZE as f64, 2.0, 4.0);
-    let mortero = v3(0.128, 0.140, 0.162);
-    let base = v3(0.300, 0.340, 0.398);
+    let mortero = v3(0.078, 0.088, 0.108);
+    let base = v3(0.178, 0.204, 0.252);
 
     if junta < 1.0 {
         let grano = value2(u * 54.0, v * 54.0, 0x7711);
@@ -134,7 +134,7 @@ fn stone_ancient_albedo(u: f64, v: f64) -> Vec3 {
     let musgo = smoothstep((mancha * humedad - 0.30) / 0.35);
     c = c.lerp(v3(0.108, 0.158, 0.088), musgo * 0.75);
     // Ligera tincion calida donde la luz del poniente lleva anos dando.
-    c.lerp(v3(0.330, 0.300, 0.250), 0.10 * smoothstep(id))
+    c.lerp(v3(0.216, 0.196, 0.164), 0.12 * smoothstep(id))
 }
 
 fn stone_ancient_height(x: usize, y: usize) -> f64 {
@@ -158,7 +158,7 @@ fn stone_ancient_height(x: usize, y: usize) -> f64 {
 fn stone_floor_albedo(u: f64, v: f64) -> Vec3 {
     let c = cell2(u * 3.4, v * 3.4, 0x2BAD);
     let junta = smoothstep(c.border / 0.10);
-    let base = v3(0.268, 0.272, 0.286).lerp(v3(0.360, 0.338, 0.312), c.id);
+    let base = v3(0.168, 0.174, 0.192).lerp(v3(0.232, 0.220, 0.206), c.id);
     let grano = fbm2(u * 40.0, v * 40.0, 0x5150, 3, 2.0, 0.5);
     let mut color = base * (0.84 + 0.30 * grano);
     // Mortero de tierra entre losas.
@@ -179,7 +179,7 @@ fn stone_floor_height(x: usize, y: usize) -> f64 {
 /// Escombro y lapidas: piedra mas clara, rota y desgastada.
 fn stone_rubble_albedo(u: f64, v: f64) -> Vec3 {
     let c = cell2(u * 5.2, v * 5.2, 0x3C3C);
-    let base = v3(0.320, 0.322, 0.336).lerp(v3(0.404, 0.392, 0.372), c.id);
+    let base = v3(0.204, 0.208, 0.222).lerp(v3(0.262, 0.256, 0.246), c.id);
     let grano = fbm2(u * 52.0, v * 52.0, 0x6161, 4, 2.0, 0.5);
     let mut color = base * (0.80 + 0.36 * grano);
     // Aristas descantilladas: el borde de cada fragmento aclara.

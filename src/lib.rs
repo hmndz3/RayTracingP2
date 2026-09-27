@@ -7,15 +7,18 @@
 
 pub mod acceleration;
 pub mod camera;
+pub mod config;
 pub mod geometry;
 pub mod image;
 pub mod lighting;
 pub mod material;
 pub mod math;
 pub mod noise;
+pub mod platform;
 pub mod ray;
 pub mod renderer;
 pub mod scene;
+pub mod scene_build;
 pub mod skybox;
 pub mod terrain;
 pub mod texgen;
