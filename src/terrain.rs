@@ -8,7 +8,7 @@
 //! cambiarla reordena el relieve, la vegetacion y los escombros a la vez.
 
 use crate::acceleration::VoxelGrid;
-use crate::material::{EARTH_DARK, EARTH_MOSS, FOLIAGE, STONE_RUBBLE, WATER};
+use crate::material::{EARTH_DARK, EARTH_MOSS, FOLIAGE, STONE_ANCIENT, STONE_RUBBLE, WATER};
 use crate::math::{hash01_3, smoothstep};
 use crate::noise::fbm2;
 
@@ -288,9 +288,13 @@ impl Terrain {
                         } else {
                             EARTH_MOSS
                         }
-                    } else if profundidad <= 2 {
+                    } else if profundidad <= 4 {
                         EARTH_DARK
                     } else {
+                        // Roca madre, solo en las ultimas hiladas. El canto de la
+                        // isla ocupa buena parte del encuadre, y con la roca
+                        // subiendo mas arriba se convertia en una masa palida que
+                        // pesaba mas que la propia abadia.
                         STONE_RUBBLE
                     };
                     grid.set(x, y, z, material);
@@ -595,7 +599,11 @@ mod tests {
                     assert_eq!(superficie, EARTH_MOSS, "superficie seca en {x},{z}");
                 }
                 assert_eq!(g.get(x, h - 2, z), EARTH_DARK, "subsuelo en {x},{z}");
-                assert_eq!(g.get(x, 0, z), STONE_RUBBLE, "roca profunda en {x},{z}");
+                // La roca madre solo aparece bajo las columnas altas: en el
+                // fondo del estanque el suelo no llega a tener esa profundidad.
+                if h >= 6 {
+                    assert_eq!(g.get(x, 0, z), STONE_RUBBLE, "roca profunda en {x},{z}");
+                }
             }
         }
     }

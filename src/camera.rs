@@ -55,10 +55,10 @@ impl Camera {
     /// faroles encendidos, todo dentro del encuadre desde el primer fotograma.
     pub fn initial() -> Camera {
         Camera {
-            target: v3(11.0, 8.5, 11.0),
+            target: v3(11.0, 9.5, 11.5),
             yaw: -147.0,
-            pitch: 13.0,
-            distance: 38.0,
+            pitch: 16.0,
+            distance: 37.0,
             vfov: 40.0,
         }
     }

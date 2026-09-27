@@ -251,15 +251,15 @@ fn wood_aged_height(x: usize, y: usize) -> f64 {
 
 /// Tierra con musgo: la capa superior del terreno.
 fn earth_moss_albedo(u: f64, v: f64) -> Vec3 {
-    let tierra_oscura = v3(0.086, 0.062, 0.040);
-    let tierra_clara = v3(0.152, 0.110, 0.070);
+    let tierra_oscura = v3(0.070, 0.052, 0.034);
+    let tierra_clara = v3(0.122, 0.090, 0.058);
     let grumo = fbm2(u * 18.0, v * 18.0, 0x1111, 4, 2.1, 0.55);
     let mut c = tierra_oscura.lerp(tierra_clara, grumo);
 
     // Musgo verde desaturado en manchas organicas.
     let mancha = fbm2(u * 5.5, v * 5.5, 0x2222, 4, 2.2, 0.55);
     let musgo = smoothstep((mancha - 0.40) / 0.32);
-    let musgo_color = v3(0.104, 0.164, 0.082).lerp(v3(0.150, 0.216, 0.108), grumo);
+    let musgo_color = v3(0.082, 0.128, 0.064).lerp(v3(0.118, 0.170, 0.086), grumo);
     c = c.lerp(musgo_color, musgo * 0.92);
 
     // Guijarros dispersos.
