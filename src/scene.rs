@@ -31,6 +31,8 @@ pub const NAVE: Rect = Rect::new(10, 12, 17, 20);
 pub const TORRE: Rect = Rect::new(18, 16, 22, 21);
 /// Plano de la fachada, la cara que mira a la camara.
 pub const FACHADA_Z: i32 = 12;
+/// Fila del diorama por la que cruza la pasarela de madera.
+pub const PASARELA_Z: i32 = 5;
 /// Columna de vidrio mas a la izquierda del vitral.
 pub const VITRAL_X0: i32 = 11;
 /// Columna de vidrio mas a la derecha del vitral.
@@ -231,7 +233,7 @@ fn camino(g: &mut VoxelGrid, t: &Terrain) {
                         continue;
                     }
                     let h = t.height(cx, cz);
-                    if h <= WATER_PLANE || h == 0 {
+                    if h < WATER_PLANE || h == 0 {
                         continue;
                     }
                     g.set(cx, h - 1, cz, STONE_FLOOR);
@@ -302,8 +304,8 @@ fn abadia(g: &mut VoxelGrid) {
     );
 
     // Portada: vano con arco de medio punto.
-    fill_box(g, 12, y0, z0, 14, y0 + 3, z0, AIR);
-    carve_arch_z(g, 12, 14, y0 + 4, 2, z0, 1);
+    fill_box(g, 12, y0, z0, 14, y0 + 1, z0, AIR);
+    carve_arch_z(g, 12, 14, y0 + 2, 2, z0, 1);
     // Jambas y dovelas de losa, para que la portada se lea como pieza aparte.
     fill_box(g, 11, y0, z0, 11, y0 + 5, z0, STONE_FLOOR);
     fill_box(g, 15, y0, z0, 15, y0 + 5, z0, STONE_FLOOR);
@@ -406,8 +408,13 @@ fn torre(g: &mut VoxelGrid) {
     let (x0, x1) = (TORRE.x0, TORRE.x1);
     let (z0, z1) = (TORRE.z0, TORRE.z1);
 
+    // Altura a la que llega el fuste antes de romperse. La coronacion solo puede
+    // recortar por debajo de esta cota: escribir escombro por encima dejaria
+    // bloques sueltos en el aire.
+    let cima = y0 + 20;
+
     // Fuste hueco.
-    for y in y0..=y0 + 15 {
+    for y in y0..=cima {
         fill_box(g, x0, y, z0, x1, y, z1, STONE_ANCIENT);
         fill_box(g, x0 + 1, y, z0 + 1, x1 - 1, y, z1 - 1, AIR);
     }
@@ -441,14 +448,22 @@ fn torre(g: &mut VoxelGrid) {
                 continue;
             }
             let dado = hash01_3(x as i64, z as i64, 3, 0x70FF);
-            let mut tope = y0 + 15 + (dado * 3.0) as i32;
-            // Derrumbe concentrado en la esquina delantera izquierda.
+            let mut tope = y0 + 16 + (dado * 5.0) as i32;
+            // Derrumbe concentrado en la esquina que mira a la camara: la torre
+            // se abre por ahi y deja ver su interior.
             let dist = (((x - x0).pow(2) + (z - z0).pow(2)) as f64).sqrt();
-            if dist < 3.0 {
-                tope = y0 + 9 + (dado * 3.0) as i32;
+            if dist < 3.2 {
+                tope = y0 + 8 + (dado * 4.0) as i32;
             }
-            fill_box(g, x, tope + 1, z, x, y0 + 18, z, AIR);
-            g.set(x, tope, z, STONE_RUBBLE);
+            let tope = tope.min(cima);
+            fill_box(g, x, tope + 1, z, x, cima, z, AIR);
+            // El remate solo se apoya si tiene fabrica debajo: si el vano de una
+            // planta llega justo hasta aqui, la piedra quedaria en el aire.
+            if g.get(x, tope - 1, z) != AIR {
+                g.set(x, tope, z, STONE_RUBBLE);
+            } else {
+                g.set(x, tope, z, AIR);
+            }
         }
     }
 
@@ -529,7 +544,7 @@ fn claustro_y_ruinas(g: &mut VoxelGrid, t: &Terrain) {
 
 /// Estanque: pasarela de madera sobre el agua, pilotes y piedras sumergidas.
 fn estanque(g: &mut VoxelGrid, t: &Terrain) {
-    let z = 5;
+    let z = PASARELA_Z;
     let deck = WATER_PLANE + 1;
 
     // Tablero de la pasarela.
@@ -933,7 +948,9 @@ mod tests {
         let deck = WATER_PLANE + 1;
         let mut sobre_agua = 0;
         for x in 4..=15 {
-            if s.grid.get(x, deck, 4) == WOOD_AGED && s.grid.get(x, WATER_PLANE - 1, 4) == WATER {
+            if s.grid.get(x, deck, PASARELA_Z) == WOOD_AGED
+                && s.grid.get(x, WATER_PLANE - 1, PASARELA_Z) == WATER
+            {
                 sobre_agua += 1;
             }
         }
@@ -945,7 +962,7 @@ mod tests {
         // Los pilotes llegan al fondo.
         let mut pilotes = 0;
         for x in [6, 8, 10, 12] {
-            if s.grid.get(x, WATER_PLANE - 1, 4) == WOOD_AGED {
+            if s.grid.get(x, WATER_PLANE - 1, PASARELA_Z) == WOOD_AGED {
                 pilotes += 1;
             }
         }
