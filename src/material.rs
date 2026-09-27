@@ -607,19 +607,29 @@ mod tests {
         let set = cargar();
         let vidrio = set.get(STAINED_GLASS);
         // Dos bloques distintos del vitral deben caer en zonas distintas del
-        // dibujo: si el mapeo fuera por bloque, darian la misma UV.
+        // dibujo: si el mapeo fuera por bloque, darian la misma UV. Los puntos se
+        // derivan del propio rectangulo declarado, de modo que mover la vidriera
+        // no deja la prueba mirando a un hueco que ya no existe.
+        let z = VITRAL_ORIGEN.z;
+        let esquina_superior_izquierda = v3(VITRAL_ORIGEN.x + 0.5, VITRAL_ORIGEN.y - 0.5, z);
+        let esquina_inferior_derecha = v3(
+            VITRAL_ORIGEN.x + VITRAL_ANCHO - 0.5,
+            VITRAL_ORIGEN.y - VITRAL_ALTO + 0.5,
+            z,
+        );
+        let celda = |p: Vec3| [p.x.floor() as i32, p.y.floor() as i32, p.z.floor() as i32];
         let a = Hit::from_face(
             1.0,
-            v3(11.5, 15.5, 15.0),
-            [11, 15, 15],
+            esquina_superior_izquierda,
+            celda(esquina_superior_izquierda),
             FACE_NEG_Z,
             STAINED_GLASS,
             v3(0.0, 0.0, 1.0),
         );
         let b = Hit::from_face(
             1.0,
-            v3(14.5, 12.5, 15.0),
-            [14, 12, 15],
+            esquina_inferior_derecha,
+            celda(esquina_inferior_derecha),
             FACE_NEG_Z,
             STAINED_GLASS,
             v3(0.0, 0.0, 1.0),

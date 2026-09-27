@@ -84,13 +84,24 @@ impl Default for TerrainSpec {
             // La abadia ocupa el fondo y un lado: z alto y x alto.
             foundation: Rect::new(9, 12, 22, 22),
             // El estanque queda en primer plano, delante de la fachada.
-            pond_center: (9.0, 6.0),
-            pond_radius: 5.4,
+            pond_center: (9.5, 7.2),
+            pond_radius: 4.7,
             pond_depth: 3.8,
             vegetation_density: 0.13,
             debris_density: 0.05,
         }
     }
+}
+
+/// Cuanto pesa el reborde de la isla en una columna, de cero a uno.
+///
+/// Vale uno en el canto del diorama y cae a cero unas celdas hacia dentro. Es la
+/// misma funcion que usan el descenso del borde y la exclusion de la orilla, de
+/// modo que los dos no pueden discrepar sobre donde empieza el canto.
+#[inline]
+pub fn rim_factor(x: i32, z: i32, size: i32) -> f64 {
+    let borde = x.min(z).min(size - 1 - x).min(size - 1 - z) as f64;
+    1.0 - smoothstep(borde / 2.5)
 }
 
 /// Terreno ya resuelto: una altura entera por columna.
@@ -100,6 +111,13 @@ pub struct Terrain {
     /// Numero de celdas solidas de cada columna. La superficie queda en el plano
     /// `height`, asi que lo que se apoye encima empieza en `y = height`.
     heights: Vec<i32>,
+    /// Columnas que pertenecen a la cubeta del estanque.
+    ///
+    /// Hace falta como dato aparte porque estar por debajo del plano del agua no
+    /// basta para ser estanque: el canto de la isla tambien desciende por debajo
+    /// de esa cota, y sin esta mascara se inundaria todo el perimetro del diorama
+    /// con un anillo de agua colgando del borde.
+    pond: Vec<bool>,
     pub spec: TerrainSpec,
 }
 
@@ -108,6 +126,7 @@ impl Terrain {
     pub fn generate(spec: TerrainSpec) -> Terrain {
         let n = spec.size;
         let mut heights = vec![0i32; (n * n) as usize];
+        let mut pond = vec![false; (n * n) as usize];
 
         for z in 0..n {
             for x in 0..n {
@@ -118,10 +137,9 @@ impl Terrain {
                 let ondulacion = fbm2(fx, fz, spec.seed, 4, 2.0, 0.5) * 2.0 - 1.0;
                 let mut h = spec.base + ondulacion * spec.amplitude;
 
-                // Reborde de la isla: las dos ultimas celdas bajan, para que el
+                // Reborde de la isla: las ultimas celdas bajan, para que el
                 // diorama no termine en un tajo recto contra el cielo.
-                let borde = (x.min(z).min(n - 1 - x).min(n - 1 - z)) as f64;
-                h -= (1.0 - smoothstep(borde / 2.5)) * 2.4;
+                h -= rim_factor(x, z, n) * 2.4;
 
                 // Meseta de cimientos: dentro es plana, y fuera se funde con el
                 // relieve en un par de celdas para que no quede un escalon.
@@ -139,14 +157,27 @@ impl Terrain {
                     h -= cuenco * spec.pond_depth;
                 }
 
-                heights[(z * n + x) as usize] = h.round() as i32;
+                let idx = (z * n + x) as usize;
+                heights[idx] = h.round() as i32;
+                // La cubeta son las columnas del circulo que ademas quedan por
+                // debajo del plano del agua: las del borde del cuenco que no
+                // bajan lo suficiente son orilla, no fondo.
+                pond[idx] = r < spec.pond_radius && heights[idx] < WATER_PLANE;
             }
         }
 
         // La orilla se nivela al plano del agua: si la celda que rodea el
         // estanque quedase por debajo, el agua se derramaria por el hueco.
+        //
+        // El reborde de la isla queda excluido a proposito. Ahi el terreno tiene
+        // que caer, y forzarlo a la cota del agua levantaria una pared de una
+        // celda justo en el canto del diorama. El estanque nunca alcanza esa
+        // franja, asi que no hay nada que contener.
         for z in 0..n {
             for x in 0..n {
+                if rim_factor(x, z, n) > 0.01 {
+                    continue;
+                }
                 let idx = (z * n + x) as usize;
                 let (px, pz) = spec.pond_center;
                 let r = ((x as f64 + 0.5 - px).powi(2) + (z as f64 + 0.5 - pz).powi(2)).sqrt();
@@ -159,6 +190,7 @@ impl Terrain {
         Terrain {
             size: n,
             heights,
+            pond,
             spec,
         }
     }
@@ -180,11 +212,16 @@ impl Terrain {
         }
     }
 
-    /// Verdadero si la columna queda por debajo del plano del agua, es decir si
-    /// forma parte del estanque.
+    /// Verdadero si la columna forma parte de la cubeta del estanque.
+    ///
+    /// No equivale a estar por debajo del plano del agua: el canto de la isla
+    /// tambien lo esta y es tierra seca.
     #[inline]
     pub fn is_submerged(&self, x: i32, z: i32) -> bool {
-        self.height(x, z) < WATER_PLANE
+        if x < 0 || z < 0 || x >= self.size || z >= self.size {
+            return false;
+        }
+        self.pond[(z * self.size + x) as usize]
     }
 
     /// Desnivel maximo con las cuatro columnas vecinas.
@@ -213,7 +250,9 @@ impl Terrain {
                 for y in 0..h {
                     let profundidad = h - 1 - y;
                     let material = if profundidad == 0 {
-                        if h <= WATER_PLANE {
+                        // El musgo no prospera sumergido: el fondo del estanque
+                        // es tierra desnuda.
+                        if self.is_submerged(x, z) {
                             EARTH_DARK
                         } else {
                             EARTH_MOSS
@@ -226,8 +265,8 @@ impl Terrain {
                     grid.set(x, y, z, material);
                 }
 
-                // Agua: rellena desde la superficie del terreno hasta el plano.
-                if h < WATER_PLANE {
+                // Agua: solo dentro de la cubeta, nunca en el canto de la isla.
+                if self.is_submerged(x, z) && h < WATER_PLANE {
                     for y in h..WATER_PLANE {
                         grid.set(x, y, z, WATER);
                     }
@@ -279,7 +318,7 @@ impl Terrain {
 
     /// Numero de columnas sumergidas.
     pub fn submerged_columns(&self) -> usize {
-        self.heights.iter().filter(|&&h| h < WATER_PLANE).count()
+        self.pond.iter().filter(|&&p| p).count()
     }
 }
 
@@ -422,18 +461,47 @@ mod tests {
     #[test]
     fn la_orilla_contiene_el_agua() {
         // Ninguna columna del anillo que rodea el estanque puede quedar por
-        // debajo del plano del agua sin estar ella misma sumergida: si no, el
-        // agua se saldria por ese hueco.
+        // debajo del plano del agua: si no, el agua se saldria por ese hueco.
+        // El canto del diorama queda fuera de la comprobacion porque ahi el
+        // terreno tiene que caer; lo que la hace segura es la propiedad que se
+        // verifica justo despues.
         let t = Terrain::generate(TerrainSpec::default());
         let (px, pz) = t.spec.pond_center;
+        let radio =
+            |x: i32, z: i32| ((x as f64 + 0.5 - px).powi(2) + (z as f64 + 0.5 - pz).powi(2)).sqrt();
+
         for z in 0..t.size {
             for x in 0..t.size {
-                let r = ((x as f64 + 0.5 - px).powi(2) + (z as f64 + 0.5 - pz).powi(2)).sqrt();
+                if rim_factor(x, z, t.size) > 0.01 {
+                    continue;
+                }
+                let r = radio(x, z);
                 if r >= t.spec.pond_radius && r < t.spec.pond_radius + 2.0 {
                     assert!(
                         t.height(x, z) >= WATER_PLANE,
                         "fuga de agua en {x},{z} con altura {}",
                         t.height(x, z)
+                    );
+                }
+            }
+        }
+
+        // El estanque no llega al canto, y por eso excluirlo no abre ninguna via
+        // de escape: toda columna sumergida esta rodeada de orilla nivelada.
+        for z in 0..t.size {
+            for x in 0..t.size {
+                if !t.is_submerged(x, z) {
+                    continue;
+                }
+                assert!(
+                    rim_factor(x, z, t.size) <= 0.01,
+                    "el estanque alcanza el canto del diorama en {x},{z}"
+                );
+                for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                    let (vx, vz) = (x + dx, z + dz);
+                    assert!(
+                        t.is_submerged(vx, vz) || t.height(vx, vz) >= WATER_PLANE,
+                        "el agua de {x},{z} se escapa por {vx},{vz}"
                     );
                 }
             }
@@ -467,10 +535,12 @@ mod tests {
                     continue;
                 }
                 let superficie = g.get(x, h - 1, z);
-                if h > WATER_PLANE {
-                    assert_eq!(superficie, EARTH_MOSS, "superficie seca en {x},{z}");
-                } else {
+                if t.is_submerged(x, z) {
                     assert_eq!(superficie, EARTH_DARK, "fondo del estanque en {x},{z}");
+                } else {
+                    // Incluye el canto de la isla, que baja de la cota del agua
+                    // pero es tierra seca y por tanto lleva musgo.
+                    assert_eq!(superficie, EARTH_MOSS, "superficie seca en {x},{z}");
                 }
                 assert_eq!(g.get(x, h - 2, z), EARTH_DARK, "subsuelo en {x},{z}");
                 assert_eq!(g.get(x, 0, z), STONE_RUBBLE, "roca profunda en {x},{z}");

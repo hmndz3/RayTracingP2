@@ -32,7 +32,7 @@ pub const TORRE: Rect = Rect::new(18, 16, 22, 21);
 /// Plano de la fachada, la cara que mira a la camara.
 pub const FACHADA_Z: i32 = 12;
 /// Fila del diorama por la que cruza la pasarela de madera.
-pub const PASARELA_Z: i32 = 5;
+pub const PASARELA_Z: i32 = 6;
 /// Columna de vidrio mas a la izquierda del vitral.
 pub const VITRAL_X0: i32 = 11;
 /// Columna de vidrio mas a la derecha del vitral.
@@ -554,7 +554,7 @@ fn estanque(g: &mut VoxelGrid, t: &Terrain) {
         g.set(x, deck + 1, z, WOOD_AGED);
     }
     // Pilotes hasta el fondo.
-    for x in [6, 8, 10, 12] {
+    for x in [6, 9, 12] {
         let fondo = t.height(x, z);
         fill_box(g, x, fondo, z, x, deck - 1, z, WOOD_AGED);
     }
@@ -961,7 +961,7 @@ mod tests {
 
         // Los pilotes llegan al fondo.
         let mut pilotes = 0;
-        for x in [6, 8, 10, 12] {
+        for x in [6, 9, 12] {
             if s.grid.get(x, WATER_PLANE - 1, PASARELA_Z) == WOOD_AGED {
                 pilotes += 1;
             }
