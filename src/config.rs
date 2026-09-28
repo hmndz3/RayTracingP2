@@ -103,6 +103,7 @@ CAMARA:
   --pitch <grados>  Elevacion de la camara
   --distance <f>    Distancia al objetivo
   --fov <grados>    Campo de vision vertical
+  --target <x,y,z>  Punto al que mira la camara
 
 ESCENA:
   --seed <n>        Semilla del terreno procedural
@@ -173,6 +174,23 @@ pub fn parse(args: &[String]) -> Result<Option<Config>, ParseError> {
             "--pitch" => c.camera.pitch = real(valor(args, &mut i, a)?, a)?,
             "--distance" => c.camera.distance = real(valor(args, &mut i, a)?, a)?,
             "--fov" => c.camera.vfov = real(valor(args, &mut i, a)?, a)?,
+            "--target" => {
+                let v = valor(args, &mut i, a)?;
+                let partes: Vec<&str> = v.split(',').collect();
+                if partes.len() != 3 {
+                    return Err(ParseError(format!(
+                        "--target espera tres numeros separados por comas, no {v:?}"
+                    )));
+                }
+                let mut n = [0.0f64; 3];
+                for (k, p) in partes.iter().enumerate() {
+                    n[k] = p
+                        .trim()
+                        .parse()
+                        .map_err(|_| ParseError(format!("--target: {p:?} no es un numero")))?;
+                }
+                c.camera.target = crate::math::v3(n[0], n[1], n[2]);
+            }
             "--seed" => {
                 let v = valor(args, &mut i, a)?;
                 c.seed = v
@@ -406,6 +424,23 @@ mod tests {
     }
 
     #[test]
+    fn el_objetivo_de_la_camara_se_puede_fijar() {
+        let c = parse(&args(&["render", "--target", "3.5, 4, -2"]))
+            .unwrap()
+            .unwrap();
+        assert!((c.camera.target.x - 3.5).abs() < 1e-12);
+        assert!((c.camera.target.y - 4.0).abs() < 1e-12);
+        assert!((c.camera.target.z + 2.0).abs() < 1e-12);
+
+        for malo in ["1,2", "1,2,3,4", "a,b,c", ""] {
+            assert!(
+                parse(&args(&["render", "--target", malo])).is_err(),
+                "deberia rechazar {malo:?}"
+            );
+        }
+    }
+
+    #[test]
     fn la_ayuda_documenta_todos_los_modos_y_opciones() {
         for modo in [
             "render",
@@ -436,6 +471,7 @@ mod tests {
             "--previews",
             "--assets",
             "--scale",
+            "--target",
         ] {
             assert!(AYUDA.contains(opcion), "la ayuda no menciona {opcion}");
         }
