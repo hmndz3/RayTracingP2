@@ -580,7 +580,7 @@ mod tests {
         assert!(bytes.len() > 13 + 768 + 19);
         assert_eq!(&bytes[13 + 768..13 + 768 + 3], &[0x21, 0xFF, 0x0B]);
         // Dos descriptores de imagen.
-        assert_eq!(bytes.iter().filter(|&&b| b == 0x2C).count() >= 2, true);
+        assert!(bytes.iter().filter(|&&b| b == 0x2C).count() >= 2);
         std::fs::remove_file(&ruta).ok();
     }
 
