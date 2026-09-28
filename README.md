@@ -116,6 +116,12 @@ escribe PNG.
 cargo run --release -- window --width 1280 --height 720
 ```
 
+![Ventana interactiva](docs/images/ventana.png)
+
+*Captura de pantalla de la ventana en marcha. El título va informando del estado:
+resolución del último cuadro presentado, si es el render de vista o el de
+calidad, cuánto ha tardado y si los mapas normales están activos.*
+
 ### Recorrido, animación y medición
 
 ```bash
@@ -619,7 +625,8 @@ compilar `platform.rs` y el proyecto sigue cumpliendo el resto de la rúbrica.
 - 222 pruebas en verde y `clippy` sin advertencias.
 - Recursos originales versionados: 12 texturas, 7 mapas normales y 6 caras de
   cielo.
-- Capturas reales del programa y comparación con y sin mapas normales.
+- Capturas reales del programa, captura de la ventana en marcha y comparación con
+  y sin mapas normales.
 - Mediciones de rendimiento tomadas en esta máquina.
 - Recorrido demostrativo, como secuencia de fotogramas y como GIF animado.
 
