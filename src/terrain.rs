@@ -8,7 +8,7 @@
 //! cambiarla reordena el relieve, la vegetacion y los escombros a la vez.
 
 use crate::acceleration::VoxelGrid;
-use crate::material::{EARTH_DARK, EARTH_MOSS, FOLIAGE, STONE_ANCIENT, STONE_RUBBLE, WATER};
+use crate::material::{EARTH_DARK, EARTH_MOSS, FOLIAGE, STONE_RUBBLE, WATER};
 use crate::math::{hash01_3, smoothstep};
 use crate::noise::fbm2;
 

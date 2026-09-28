@@ -24,6 +24,8 @@ pub enum Mode {
     Textures,
     /// Comparacion con y sin mapas normales.
     NormalsCompare,
+    /// Recorrido de demostracion como GIF animado.
+    Gif,
 }
 
 impl Mode {
@@ -35,6 +37,7 @@ impl Mode {
             "benchmark" => Mode::Benchmark,
             "textures" => Mode::Textures,
             "normals-compare" => Mode::NormalsCompare,
+            "gif" => Mode::Gif,
             _ => return None,
         })
     }
@@ -87,6 +90,7 @@ MODOS:
   benchmark         Mide el rendimiento a varias resoluciones y muestras.
   textures          Regenera texturas, mapas normales y cubemap en assets/.
   normals-compare   Escribe dos imagenes iguales, con y sin mapas normales.
+  gif               Recorre el guion y escribe un GIF animado.
 
 IMAGEN:
   --width <n>       Anchura en pixeles (por omision 1280)
@@ -281,6 +285,7 @@ mod tests {
             ("benchmark", Mode::Benchmark),
             ("textures", Mode::Textures),
             ("normals-compare", Mode::NormalsCompare),
+            ("gif", Mode::Gif),
         ] {
             let c = parse(&args(&[texto])).unwrap().unwrap();
             assert_eq!(c.mode, modo);

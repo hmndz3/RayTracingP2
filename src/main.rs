@@ -30,6 +30,7 @@ fn main() -> ExitCode {
         Mode::Tour => modo_recorrido(&config),
         Mode::Benchmark => modo_benchmark(&config),
         Mode::Window => modo_ventana(&config),
+        Mode::Gif => modo_gif(&config),
     };
 
     match resultado {
@@ -279,4 +280,60 @@ fn modo_ventana(_c: &Config) -> Result<(), String> {
          para Windows; usa el modo `render` o `tour`, que son independientes del sistema"
             .to_string(),
     )
+}
+
+/// Recorre el guion y escribe un GIF animado.
+///
+/// El GIF existe para que el README lleve una animacion que se vea sin descargar
+/// nada. No sustituye al video: para eso estan los fotogramas del modo `tour` y
+/// las instrucciones del README.
+fn modo_gif(c: &Config) -> Result<(), String> {
+    let mundo = preparar(c)?;
+    let keys = tour_keys();
+    let inicio = std::time::Instant::now();
+
+    // Primera pasada: se renderiza todo y se guardan los fotogramas en memoria,
+    // porque la paleta tiene que calcularse sobre la animacion completa. Una
+    // paleta deducida del primer fotograma dejaria el resto con colores ajenos.
+    let mut fotogramas = Vec::with_capacity(c.frames);
+    let mut muestras = Vec::new();
+    for f in 0..c.frames {
+        let t = if c.frames <= 1 {
+            0.0
+        } else {
+            f as f64 / (c.frames - 1) as f64
+        };
+        let camara = encajar_camara(&mundo, tour_camera(&keys, t, c.camera.vfov));
+        let reporte =
+            render(&mundo, &camara, &c.settings, None, None).ok_or("el render se cancelo")?;
+        let img = reporte.framebuffer.to_image(c.settings.exposure);
+        // Se muestrea uno de cada trece pixeles: suficiente para la paleta y
+        // mucho mas barato que mirarlos todos.
+        if f % 3 == 0 {
+            abadia::gif::sample_colors(&img, 13, &mut muestras);
+        }
+        fotogramas.push(img);
+        if f % 10 == 0 {
+            println!("  fotograma {:>4}/{}", f + 1, c.frames);
+        }
+    }
+
+    println!("calculando la paleta sobre {} muestras", muestras.len());
+    let lut = abadia::gif::PaletteLookup::new(abadia::gif::quantize(&muestras, 256));
+
+    let mut gif = abadia::gif::GifWriter::new(c.settings.width, c.settings.height, lut, 6);
+    for img in &fotogramas {
+        gif.add_frame(img, 7)?;
+    }
+    let n = gif.frame_count();
+    let bytes = gif
+        .finish(&c.out)
+        .map_err(|e| format!("guardando {}: {e}", c.out.display()))?;
+    println!(
+        "{n} fotogramas en {} ({:.1} MiB) en {:.1} s",
+        c.out.display(),
+        bytes as f64 / (1024.0 * 1024.0),
+        inicio.elapsed().as_secs_f64()
+    );
+    Ok(())
 }
