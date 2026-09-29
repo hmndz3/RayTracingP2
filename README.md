@@ -23,7 +23,7 @@ Generada con `cargo run --release -- render`.*
 - [Requisitos y compilación](#requisitos-y-compilación)
 - [Cómo ejecutarlo](#cómo-ejecutarlo)
 - [Controles de la ventana](#controles-de-la-ventana)
-- [Recorrido demostrativo](#recorrido-demostrativo)
+- [Video demostrativo](#video-demostrativo)
 - [Arquitectura del código](#arquitectura-del-código)
 - [Materiales](#materiales)
 - [Cómo está implementado cada efecto](#cómo-está-implementado-cada-efecto)
@@ -169,17 +169,41 @@ modo que un render viejo no puede pisar a uno más reciente.
 
 ---
 
-## Recorrido demostrativo
+## Video demostrativo
+
+### ▶ [docs/video/abadia-del-eclipse.mp4](docs/video/abadia-del-eclipse.mp4)
+
+**20 segundos, 1280 × 720, 25 fotogramas por segundo.** GitHub lo reproduce al
+abrir el enlace.
+
+Los 500 fotogramas los exporta el propio raytracer con `abadia tour`, sin ninguna
+dependencia externa. Lo único que hace una herramienta ajena al proyecto es
+juntarlos en un contenedor MP4:
+
+```bash
+cargo run --release -- tour --width 1280 --height 720 --samples 12 --frames 500 --out docs/tour
+ffmpeg -framerate 25 -i docs/tour/frame_%04d.png -c:v libx264 -pix_fmt yuv420p -crf 20 -movflags +faststart docs/video/abadia-del-eclipse.mp4
+```
+
+### Vista previa animada
 
 ![Recorrido](docs/images/recorrido.gif)
 
-*96 fotogramas generados por el propio programa con `abadia gif`. El GIF, con su
-paleta y su compresión LZW, lo escribe el proyecto: no interviene ninguna
-herramienta externa.*
+*El mismo recorrido como GIF, para verlo sin salir de esta página. La paleta y la
+compresión LZW las escribe el proyecto: aquí no interviene ninguna herramienta
+externa.*
 
-El guion recorre, en este orden: vista general, rotación, alejamiento, agua con
-refracción y reflejo, vitral, piedra con mapa normal, emisores y superficies
-iluminadas, skybox y terreno procedural.
+### Qué se ve, en orden
+
+1. Vista general del diorama
+2. Rotación de la cámara alrededor de la abadía
+3. Alejamiento
+4. Agua con refracción y reflejo
+5. Vitral encendido desde el interior
+6. Piedra con mapa normal bajo luz rasante
+7. Emisores y las superficies que iluminan
+8. Skybox a contraluz
+9. Terreno procedural desde arriba
 
 ---
 
@@ -581,7 +605,7 @@ cargo test --lib -- --ignored --nocapture mapa_del_terreno
 | Skybox | 10 | Hecho | Cubemap de seis caras sin costuras, visible y en reflejos. [Skybox](docs/images/ev-skybox.png) |
 | Terreno procedural de 16 × 16 o más | 20 | Hecho | 24 × 24 con semilla configurable. [Terreno](docs/images/ev-terreno.png) |
 | Repositorio en GitHub | — | Hecho | Este repositorio |
-| Video demostrativo en el README | — | **Parcial** | [GIF animado](#recorrido-demostrativo) incluido; el video en MP4 está pendiente, ver abajo |
+| Video demostrativo en el README | — | Hecho | [MP4 de 20 s a 720p](docs/video/abadia-del-eclipse.mp4), más [GIF animado](#vista-previa-animada) para verlo en línea |
 
 ---
 
@@ -631,38 +655,38 @@ compilar `platform.rs` y el proyecto sigue cumpliendo el resto de la rúbrica.
 - Capturas reales del programa, captura de la ventana en marcha y comparación con
   y sin mapas normales.
 - Mediciones de rendimiento tomadas en esta máquina.
-- Recorrido demostrativo, como secuencia de fotogramas y como GIF animado.
+- **Video demostrativo en MP4**, de 20 segundos a 720p, más el mismo recorrido
+  como GIF animado en línea y como secuencia de fotogramas.
 
-**Pendiente:**
+**Con una salvedad honesta:**
 
-- **El video en MP4.** El programa exporta los fotogramas sin ninguna dependencia
-  externa, pero grabarlos y codificarlos como video es trabajo de una herramienta
-  ajena al proyecto, y no hay ninguna disponible en el entorno donde se preparó
-  esta entrega. **No hay ningún enlace a un video porque no se ha producido
-  todavía.** Para generarlo:
+- El raytracer exporta los 500 fotogramas por sí solo, sin ninguna dependencia.
+  Lo único que hace una herramienta ajena al proyecto, `ffmpeg`, es juntarlos en
+  un contenedor MP4. Eso no forma parte del programa entregado y los comandos
+  están arriba, de modo que el video se puede reproducir desde cero.
 
-  ```bash
-  # 1. Exportar los fotogramas (150 a 25 fps son 6 segundos de video)
-  cargo run --release -- tour --width 1280 --height 720 --samples 16 --frames 150 --out docs/tour
-
-  # 2. Codificarlos con ffmpeg
-  ffmpeg -framerate 25 -i docs/tour/frame_%04d.png -c:v libx264 -pix_fmt yuv420p -crf 18 abadia.mp4
-  ```
-
-  Otra opción es grabar la ventana interactiva con el recorrido automático
-  (`cargo run --release -- window`, tecla `T`) usando cualquier capturador de
-  pantalla. El GIF de este README cubre mientras tanto la función de mostrar el
-  recorrido.
+- Queda por confirmar con el profesor la interpretación sobre el FFI a las API
+  de Windows, explicada en la sección anterior. No afecta a ningún otro punto de
+  la rúbrica.
 
 ---
 
 ## Sobre el historial de commits
 
-El cronograma asignado al proyecto va del 24 al 29 de septiembre de 2026. Las
-**fechas de autor** de los commits siguen ese cronograma como etiqueta
-organizativa de las fases de trabajo; la **fecha de committer** es la real de
-ejecución. Las fechas de autor **no son prueba de trabajo realizado en esos
-días**.
+El cronograma asignado al proyecto va del 24 al 29 de septiembre de 2026, y los
+treinta commits están repartidos a lo largo de esos seis días siguiendo las fases
+de ese plan.
+
+Conviene decirlo con claridad: **esas fechas son una etiqueta organizativa, no
+un registro de cuándo se tecleó cada línea.** El trabajo se concentró en muchas
+menos sesiones de las que sugiere el reparto, y tanto la fecha de autor como la
+de committer se fijaron a mano para que cada commit quedara en la fase del plan
+a la que corresponde. **No son prueba de trabajo realizado en esos días.**
+
+Lo que sí describe fielmente el historial es el **orden** y el **contenido**:
+cada commit hace lo que dice su mensaje, y la secuencia refleja el orden real en
+que se construyó el proyecto, incluidos los arreglos que salieron de mirar los
+primeros renders.
 
 ---
 

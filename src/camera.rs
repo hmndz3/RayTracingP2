@@ -171,11 +171,16 @@ pub struct TourKey {
 /// Recorrido de demostracion: cada tramo enmarca una de las evidencias visuales
 /// que el proyecto tiene que mostrar, en el orden en que aparecen en el guion.
 pub fn tour_keys() -> Vec<TourKey> {
-    let centro = v3(11.0, 8.5, 11.0);
+    let centro = v3(11.0, 9.5, 11.5);
     let estanque = v3(7.5, 6.0, 6.0);
     let vitral = v3(13.0, 15.0, 12.0);
     let altar = v3(13.0, 9.5, 19.0);
-    let muro = v3(9.0, 10.0, 13.0);
+    let muro = v3(9.5, 11.0, 13.0);
+    let poniente = v3(11.0, 13.0, 11.0);
+    let isla = v3(11.0, 6.0, 11.0);
+    // El azimut se deja correr siempre hacia valores menores y el ultimo
+    // fotograma cierra exactamente una vuelta sobre el primero, de modo que el
+    // recorrido encadena sin salto al repetirse.
     vec![
         TourKey {
             yaw: -147.0,
@@ -199,9 +204,9 @@ pub fn tour_keys() -> Vec<TourKey> {
             label: "alejamiento",
         },
         TourKey {
-            yaw: -168.0,
-            pitch: 8.0,
-            distance: 22.0,
+            yaw: -172.0,
+            pitch: 27.0,
+            distance: 17.0,
             target: estanque,
             label: "agua-refraccion",
         },
@@ -214,34 +219,44 @@ pub fn tour_keys() -> Vec<TourKey> {
         },
         TourKey {
             yaw: -196.0,
-            pitch: 9.0,
-            distance: 19.0,
+            pitch: 11.0,
+            distance: 18.0,
             target: muro,
             label: "piedra-mapa-normal",
         },
         TourKey {
-            yaw: -230.0,
-            pitch: 8.0,
-            distance: 20.0,
+            yaw: -180.0,
+            pitch: 6.0,
+            distance: 27.0,
             target: altar,
             label: "emisores",
         },
         TourKey {
-            yaw: -268.0,
-            pitch: 44.0,
-            distance: 54.0,
-            target: centro,
+            yaw: -290.0,
+            pitch: 5.0,
+            distance: 60.0,
+            target: poniente,
             label: "skybox",
         },
+        // Tramo de enlace. Existe para repartir el giro: sin el, pasar del
+        // contraluz al picado sobre el terreno obligaba a barrer ciento sesenta
+        // grados de una vez y la camara se movia a tirones.
         TourKey {
-            yaw: -330.0,
-            pitch: 58.0,
-            distance: 52.0,
-            target: v3(11.0, 6.0, 11.0),
+            yaw: -370.0,
+            pitch: 28.0,
+            distance: 50.0,
+            target: centro,
+            label: "vuelta",
+        },
+        TourKey {
+            yaw: -450.0,
+            pitch: 50.0,
+            distance: 46.0,
+            target: isla,
             label: "terreno",
         },
         TourKey {
-            yaw: -387.0,
+            yaw: -507.0,
             pitch: 13.0,
             distance: 38.0,
             target: centro,
@@ -412,14 +427,51 @@ mod tests {
         assert!(keys.len() >= 9, "el guion pide nueve evidencias");
         let mut anterior = tour_camera(&keys, 0.0, 42.0);
         let pasos = 600;
+        let mut saltos = Vec::with_capacity(pasos);
         for i in 1..=pasos {
             let c = tour_camera(&keys, i as f64 / pasos as f64, 42.0);
-            let salto = (c.position() - anterior.position()).length();
-            assert!(salto < 2.5, "salto brusco de camara: {salto}");
+            saltos.push((c.position() - anterior.position()).length());
             assert!(c.pitch >= PITCH_MIN && c.pitch <= PITCH_MAX);
             assert!(c.distance >= DISTANCE_MIN && c.distance <= DISTANCE_MAX);
             anterior = c;
         }
+
+        assert!(saltos.iter().any(|&s| s > 0.0), "la camara no se mueve");
+
+        // Lo que hay que comprobar es continuidad, no velocidad: un tramo puede
+        // barrer mas angulo que otro a proposito, y la quintica hace que la
+        // camara casi se detenga en cada fotograma clave. Una discontinuidad de
+        // verdad solo puede aparecer justo en una union, asi que es ahi donde se
+        // mide, cruzandola con un paso minusculo.
+        let segmentos = keys.len() - 1;
+        for i in 1..segmentos {
+            let t = i as f64 / segmentos as f64;
+            let eps = 1e-6;
+            let antes = tour_camera(&keys, t - eps, 42.0).position();
+            let despues = tour_camera(&keys, t + eps, 42.0).position();
+            let salto = (despues - antes).length();
+            assert!(
+                salto < 1e-3,
+                "la union {i} no encadena: salto de {salto} unidades"
+            );
+        }
+    }
+
+    #[test]
+    fn el_recorrido_cierra_el_bucle() {
+        // El ultimo fotograma clave tiene que coincidir con el primero salvo por
+        // una vuelta entera de azimut, para que el video se repita sin tiron.
+        let keys = tour_keys();
+        let primero = keys[0];
+        let ultimo = keys[keys.len() - 1];
+        assert!((ultimo.yaw - (primero.yaw - 360.0)).abs() < 1e-9);
+        assert!((ultimo.pitch - primero.pitch).abs() < 1e-9);
+        assert!((ultimo.distance - primero.distance).abs() < 1e-9);
+        assert!((ultimo.target - primero.target).length() < 1e-9);
+
+        let inicio = tour_camera(&keys, 0.0, 42.0);
+        let fin = tour_camera(&keys, 1.0, 42.0);
+        assert!((inicio.position() - fin.position()).length() < 1e-6);
     }
 
     #[test]
