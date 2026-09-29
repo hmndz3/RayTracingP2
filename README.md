@@ -294,9 +294,12 @@ un cuerpo único. Lo comprueba
 
 ### Reflexión
 
+![Placa de bronce](docs/images/ev-bronce.png)
+
 El reflejo no es un cambio de color: es un rayo trazado de verdad. En el
 estanque se reconocen la pasarela, los postes y los faroles; en la placa de
-bronce, la arquitectura del atrio.
+bronce del atrio, que es la superficie grande de la izquierda, los faroles y la
+fachada.
 
 La dirección reflejada se dispersa según el exponente especular del material
 muestreando el lóbulo de Phong, así que el mismo mecanismo da el espejo del agua
@@ -572,7 +575,7 @@ cargo test --lib -- --ignored --nocapture mapa_del_terreno
 | Rotación y acercamiento de cámara | 10 | Hecho | Orbitador con topes y zoom multiplicativo. [Recorrido](docs/images/recorrido.gif), [rotación](docs/images/ev-rotacion.png), [alejamiento](docs/images/ev-alejamiento.png) |
 | Cinco materiales diferentes | 25 | Hecho | Doce materiales, siete de ellos los que pide el encargo. [Tabla de materiales](#materiales) |
 | Refracción | 10 | Hecho | Snell, reflexión interna total, medios con Beer-Lambert. [Agua](docs/images/ev-agua.png), [vitral](docs/images/ev-vitral.png) |
-| Reflexión | 5 | Hecho | Reflejo recursivo con Fresnel y lóbulo según el exponente. [Agua](docs/images/ev-agua.png) |
+| Reflexión | 5 | Hecho | Reflejo recursivo con Fresnel y lóbulo según el exponente. [Agua](docs/images/ev-agua.png), [placa de bronce](docs/images/ev-bronce.png) |
 | Mapas normales | 10 | Hecho | RGB en espacio tangente, base por cara. [Comparación con y sin](#mapas-normales) |
 | Material emisivo | 10 | Hecho | Emisión propia más muestreo explícito por importancia. [Emisores](docs/images/ev-emisores.png) |
 | Skybox | 10 | Hecho | Cubemap de seis caras sin costuras, visible y en reflejos. [Skybox](docs/images/ev-skybox.png) |
