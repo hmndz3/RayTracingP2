@@ -509,8 +509,17 @@ fn una_rejilla_vacia_devuelve_solo_cielo() {
     let r = render(&vacio, &c, &ajustes(120, 68, 1), None, None).unwrap();
     let e = estadisticas(&r.framebuffer.to_image(1.0));
     assert!(e.media > 20.0, "el cielo no puede salir negro: {}", e.media);
+    // El cielo si tiene contraste, porque lleva luna y estrellas. Lo que no puede
+    // tener es superficie: ninguna zona apreciable puede quedar en negro, que es
+    // como se veria una geometria que el recorrido hubiese inventado.
     assert!(
-        e.maximo - e.minimo < 130,
-        "sin geometria no deberia haber tanto contraste"
+        e.sombras < 0.02,
+        "sin geometria no deberia haber zonas negras: {:.1} %",
+        e.sombras * 100.0
+    );
+    assert!(
+        e.altas < 0.02,
+        "solo la luna puede quemar, y es pequena: {:.1} %",
+        e.altas * 100.0
     );
 }

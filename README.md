@@ -533,7 +533,7 @@ Otras medidas tomadas al preparar la entrega:
 cargo test
 ```
 
-**222 pruebas**: 208 unitarias repartidas por los módulos y 14 de integración
+**235 pruebas**: 221 unitarias repartidas por los módulos y 14 de integración
 sobre el diorama completo. Además `cargo clippy --all-targets` no emite ni una
 advertencia.
 
@@ -622,7 +622,7 @@ compilar `platform.rs` y el proyecto sigue cumpliendo el resto de la rúbrica.
 **Listo:**
 
 - Proyecto funcional, sin dependencias, compilando en release.
-- 222 pruebas en verde y `clippy` sin advertencias.
+- 235 pruebas en verde y `clippy` sin advertencias.
 - Recursos originales versionados: 12 texturas, 7 mapas normales y 6 caras de
   cielo.
 - Capturas reales del programa, captura de la ventana en marcha y comparación con

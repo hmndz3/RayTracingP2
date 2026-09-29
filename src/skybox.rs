@@ -21,7 +21,7 @@ use crate::texture::Texture;
 pub const SUN_DIR: Vec3 = v3(-0.9106, 0.2419, -0.3321);
 
 /// Direccion hacia la luna, que da el contrapunto frio al ambar del poniente.
-pub const MOON_DIR: Vec3 = v3(0.5930, 0.5450, 0.5930);
+pub const MOON_DIR: Vec3 = v3(0.2746, 0.0872, 0.9576);
 
 /// Semilla del cielo. Se fija aparte de la del terreno para que cambiar el relieve
 /// no cambie tambien las estrellas.
