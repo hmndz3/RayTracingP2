@@ -241,10 +241,17 @@ pub fn sky_radiance(dir: Vec3) -> Vec3 {
     let a_cenit = smoothstep((arriba - 0.22) / 0.78);
     let mut color = horizonte.lerp(media, a_media).lerp(cenit, a_cenit);
 
-    // Bandas de nube tenues: rompen la planitud sin dibujar formas reconocibles.
-    let banda = directional(d, 2.4, SKY_SEED ^ 0x11, 4);
-    let mascara_banda = smoothstep((banda - 0.42) / 0.45) * (1.0 - smoothstep(arriba / 0.6));
-    color = color.lerp(v3(0.1750, 0.1450, 0.2450), mascara_banda * 0.55);
+    // Cirros. Se estiran en horizontal multiplicando la coordenada vertical antes
+    // de entrar al ruido: una nube alta se ve alargada porque la miramos casi de
+    // canto, y evaluar el ruido isotropo daba manchas redondas que parecian
+    // algodon.
+    let estirado = v3(d.x, d.y * 4.2, d.z);
+    let cirro = directional(estirado, 2.9, SKY_SEED ^ 0x11, 5);
+    let detalle = directional(estirado, 8.5, SKY_SEED ^ 0x12, 3);
+    let forma = cirro * 0.72 + detalle * 0.28;
+    // Se concentran en la franja baja del cielo y desaparecen hacia el cenit.
+    let franja = (1.0 - smoothstep((arriba - 0.06) / 0.46)) * smoothstep((arriba + 0.04) / 0.10);
+    let densidad_nube = smoothstep((forma - 0.46) / 0.30) * franja;
 
     // Resto de luz del poniente: un nucleo estrecho y un halo ancho, los dos
     // pegados al horizonte mediante una caida exponencial en altura.
@@ -254,6 +261,21 @@ pub fn sky_radiance(dir: Vec3) -> Vec3 {
     let halo = hacia_sol.powf(3.2) * 0.30 * pegado;
     let ancho = hacia_sol.powf(1.3) * 0.085 * pegado;
     color += v3(1.00, 0.545, 0.225) * (nucleo + halo + ancho);
+
+    // Los cirros se pintan despues del poniente para que se tinan con el: los que
+    // quedan sobre el sol recogen el ambar por debajo y los de la parte opuesta
+    // se quedan en el violeta frio del cielo. Es lo que ordena la escena en
+    // profundidad, porque dice de donde viene la luz.
+    if densidad_nube > 0.001 {
+        let frio = v3(0.1500, 0.1360, 0.2160);
+        let calido = v3(0.8200, 0.4600, 0.2600);
+        let encendido = hacia_sol.powf(1.6) * pegado;
+        let tono = frio.lerp(calido, smoothstep(encendido / 0.55));
+        color = color.lerp(tono, densidad_nube * 0.62);
+        // Borde iluminado de las nubes mas cercanas al poniente.
+        let filo = smoothstep((densidad_nube - 0.30) / 0.22) * encendido;
+        color += v3(1.00, 0.62, 0.33) * (filo * 0.16);
+    }
 
     // Luna: el disco con su fase y sus mares, mas el halo frio que deja en el
     // cielo de alrededor.
