@@ -22,7 +22,7 @@ pub const TEX_SIZE: usize = 32;
 /// Lado en pixeles del vitral, que necesita mas detalle para su celosia.
 pub const VITRAL_SIZE: usize = 64;
 /// Lado en pixeles de cada cara del cubemap.
-pub const SKY_FACE_SIZE: usize = 256;
+pub const SKY_FACE_SIZE: usize = 512;
 
 /// Construye una textura evaluando una funcion de color lineal por pixel.
 fn build(size: usize, f: impl Fn(f64, f64) -> Vec3) -> Image {

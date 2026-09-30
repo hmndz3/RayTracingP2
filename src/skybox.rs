@@ -8,7 +8,7 @@
 //! misma direccion en su arista comun, asi que no puede aparecer una costura.
 
 use crate::geometry::{face_normal, FACE_NEG_X, FACE_NEG_Y, FACE_NEG_Z, FACE_POS_X, FACE_POS_Y};
-use crate::math::{hash01_3, smoothstep, v3, Vec3};
+use crate::math::{hash01_3, smoothstep, v3, Onb, Vec3};
 use crate::noise::directional;
 use crate::texture::Texture;
 
@@ -146,6 +146,83 @@ fn milky_way_density(d: Vec3) -> f64 {
     (banda * brillo * (1.0 - 0.72 * corte)).clamp(0.0, 1.0)
 }
 
+/// Radio angular aparente de la luna, en radianes.
+///
+/// La real mide medio grado. Aqui se agranda a algo mas del doble, que es la
+/// licencia de siempre en pintura y en cine: a tamano exacto, y con un cubemap de
+/// esta resolucion, el disco ocuparia tres o cuatro texels y no se distinguiria
+/// de una estrella brillante.
+pub const MOON_RADIUS: f64 = 0.0305;
+
+/// Disco lunar: fase, mares y oscurecimiento del limbo.
+///
+/// Se resuelve como una esfera de verdad, no como un circulo plano. Del punto del
+/// disco se deduce la normal de la superficie, y con ella se calcula tanto la
+/// iluminacion del sol, que recorta la fase, como el oscurecimiento hacia el
+/// borde. Un disco uniforme se lee como una pegatina; esto se lee como un cuerpo.
+fn moon_disc(d: Vec3) -> Vec3 {
+    let hacia_luna = MOON_DIR.normalized();
+    let cos_sep = d.dot(hacia_luna);
+    let cos_borde = MOON_RADIUS.cos();
+    if cos_sep <= cos_borde {
+        return Vec3::ZERO;
+    }
+
+    // Coordenadas dentro del disco, en el plano perpendicular a la luna.
+    let base = Onb::from_normal(hacia_luna);
+    let sin_radio = MOON_RADIUS.sin();
+    let x = d.dot(base.tangent) / sin_radio;
+    let y = d.dot(base.bitangent) / sin_radio;
+    let r2 = x * x + y * y;
+    if r2 >= 1.0 {
+        return Vec3::ZERO;
+    }
+    let z = (1.0 - r2).sqrt();
+
+    // Normal de la superficie en ese punto. El eje que apunta al observador es
+    // el contrario al que va del observador a la luna.
+    let normal = base.tangent * x + base.bitangent * y - hacia_luna * z;
+
+    // Fase: el sol esta tan lejos que sus rayos llegan paralelos, asi que la
+    // direccion hacia el sol desde la luna es la misma que desde la escena.
+    let iluminacion = normal.dot(SUN_DIR.normalized()).max(0.0);
+    // El terminador real no es un corte limpio; se suaviza un poco.
+    let fase = smoothstep(iluminacion / 0.22);
+
+    // Mares: manchas oscuras de basalto, estables porque dependen solo de la
+    // posicion sobre la superficie.
+    let superficie = normal * 3.0;
+    let mar = crate::noise::fbm3(
+        superficie.x,
+        superficie.y,
+        superficie.z,
+        SKY_SEED ^ 0x4001,
+        4,
+        2.1,
+        0.55,
+    );
+    let albedo = 1.0 - 0.42 * smoothstep((mar - 0.46) / 0.30);
+    // Craterillos finos, para que la superficie no quede lisa.
+    let grano = crate::noise::fbm3(
+        superficie.x * 7.0,
+        superficie.y * 7.0,
+        superficie.z * 7.0,
+        SKY_SEED ^ 0x4002,
+        3,
+        2.0,
+        0.5,
+    );
+    let albedo = albedo * (0.90 + 0.20 * grano);
+
+    // Oscurecimiento del limbo: el borde del disco se ve mas apagado porque la
+    // superficie se escorza.
+    let limbo = 0.55 + 0.45 * z.powf(0.45);
+    // Y el borde mismo se suaviza un texel para que no quede dentado.
+    let borde = smoothstep((1.0 - r2.sqrt()) / 0.06);
+
+    v3(0.96, 0.95, 0.90) * (fase * albedo * limbo * borde * 1.35)
+}
+
 /// Radiancia del cielo en una direccion, en luz lineal.
 ///
 /// La paleta es la del encargo: cenit azul profundo, franja media violeta,
@@ -178,11 +255,14 @@ pub fn sky_radiance(dir: Vec3) -> Vec3 {
     let ancho = hacia_sol.powf(1.3) * 0.085 * pegado;
     color += v3(1.00, 0.545, 0.225) * (nucleo + halo + ancho);
 
-    // Luna: disco pequeno de borde suave mas su propio halo frio.
-    let hacia_luna = d.dot(MOON_DIR).max(0.0);
-    let disco = smoothstep((hacia_luna - 0.9988) / 0.0009);
-    let halo_luna = hacia_luna.powf(180.0) * 0.22 + hacia_luna.powf(14.0) * 0.035;
-    color += v3(0.86, 0.90, 1.00) * (disco * 0.85 + halo_luna);
+    // Luna: el disco con su fase y sus mares, mas el halo frio que deja en el
+    // cielo de alrededor.
+    let hacia_luna = d.dot(MOON_DIR.normalized()).max(0.0);
+    let halo_luna = hacia_luna.powf(900.0) * 0.30
+        + hacia_luna.powf(120.0) * 0.085
+        + hacia_luna.powf(11.0) * 0.030;
+    color += v3(0.86, 0.90, 1.00) * halo_luna;
+    color += moon_disc(d);
 
     // Estrellas. Se apagan cerca del horizonte y dentro del brillo del poniente,
     // que es donde el cielo real ya no las deja ver.
@@ -284,14 +364,33 @@ pub fn project_onto_face(face: usize, dir: Vec3) -> Option<(f64, f64)> {
 /// Vive junto a la definicion del cielo, y no en el generador de recursos, para
 /// que las pruebas de costura puedan comparar exactamente las mismas imagenes que
 /// se escriben en el repositorio.
+/// Muestras por lado dentro de cada texel al generar una cara.
+///
+/// El cielo tiene ahora rasgos mas finos que un texel: una estrella mide uno o
+/// dos, y el borde del disco lunar es una curva. Con una sola muestra centrada
+/// esos rasgos aparecen y desaparecen segun caigan dentro o fuera del centro del
+/// texel, que es el parpadeo tipico del submuestreo. Promediar una retícula de
+/// muestras lo resuelve, y como esto solo se ejecuta al generar los recursos, el
+/// coste no lo paga el render.
+pub const SKY_SUPERSAMPLE: usize = 3;
+
 pub fn render_face(face: usize, size: usize) -> crate::image::Image {
     use crate::texture::linear_to_srgb;
     let mut img = crate::image::Image::new(size, size);
+    let n = SKY_SUPERSAMPLE.max(1);
+    let peso = 1.0 / (n * n) as f64;
+
     for y in 0..size {
-        let v = (y as f64 + 0.5) / size as f64;
         for x in 0..size {
-            let u = (x as f64 + 0.5) / size as f64;
-            let c = sky_radiance(face_uv_to_direction(face, u, v));
+            let mut suma = Vec3::ZERO;
+            for sy in 0..n {
+                let v = (y as f64 + (sy as f64 + 0.5) / n as f64) / size as f64;
+                for sx in 0..n {
+                    let u = (x as f64 + (sx as f64 + 0.5) / n as f64) / size as f64;
+                    suma += sky_radiance(face_uv_to_direction(face, u, v));
+                }
+            }
+            let c = suma * peso;
             img.set(
                 x,
                 y,

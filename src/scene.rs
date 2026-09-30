@@ -541,7 +541,11 @@ mod tests {
         let assets = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets");
         let (mundo, avisos) = build_world(&assets, &SceneSpec::default());
         assert!(avisos.is_empty(), "faltan recursos: {avisos:?}");
-        assert_eq!(mundo.skybox.face_resolution(), 256);
+        assert_eq!(
+            mundo.skybox.face_resolution(),
+            crate::texgen::SKY_FACE_SIZE,
+            "las caras cargadas deben coincidir con las que genera el proyecto"
+        );
         assert!(!mundo.lighting.emitters.is_empty());
         assert!(mundo.grid.solid_count() > 4000);
     }
