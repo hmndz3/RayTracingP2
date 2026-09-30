@@ -114,6 +114,38 @@ fn star_field(d: Vec3, refuerzo: f64) -> Vec3 {
     tenues + medias + brillantes
 }
 
+/// Polo del plano galactico. La via lactea es la banda perpendicular a el.
+///
+/// Se elige inclinado respecto de la vertical para que la banda cruce el cielo en
+/// diagonal: una franja horizontal se leeria como una nube y una vertical como un
+/// error de generacion.
+pub const GALACTIC_POLE: Vec3 = v3(0.4540, 0.8290, -0.3250);
+
+/// Densidad de la via lactea en una direccion, de cero a uno.
+///
+/// Es una banda alrededor del ecuador galactico, modulada por ruido para que
+/// tenga grumos y, sobre todo, las vetas oscuras de polvo que la parten en dos a
+/// lo largo. Sin esas vetas la banda parece una brocha, no una galaxia vista de
+/// canto.
+fn milky_way_density(d: Vec3) -> f64 {
+    let latitud = d.dot(GALACTIC_POLE.normalized()).abs();
+    // Perfil transversal: nucleo estrecho y alas largas.
+    let banda = (-latitud * latitud * 26.0).exp();
+    if banda < 0.001 {
+        return 0.0;
+    }
+
+    // Grumos a lo largo de la banda.
+    let grumo = directional(d, 5.5, SKY_SEED ^ 0x9A11, 4);
+    let brillo = 0.45 + 0.90 * grumo;
+
+    // Vetas de polvo: lineas oscuras que siguen el plano galactico.
+    let polvo = directional(d, 11.0, SKY_SEED ^ 0x9A22, 3);
+    let corte = smoothstep((polvo - 0.46) / 0.26);
+
+    (banda * brillo * (1.0 - 0.72 * corte)).clamp(0.0, 1.0)
+}
+
 /// Radiancia del cielo en una direccion, en luz lineal.
 ///
 /// La paleta es la del encargo: cenit azul profundo, franja media violeta,
@@ -156,7 +188,17 @@ pub fn sky_radiance(dir: Vec3) -> Vec3 {
     // que es donde el cielo real ya no las deja ver.
     let visibilidad = smoothstep(arriba / 0.14) * (1.0 - smoothstep(hacia_sol.powf(2.5) / 0.55));
     if visibilidad > 0.001 {
-        color += star_field(d, 1.0) * visibilidad;
+        // Via lactea: primero su resplandor difuso, y luego el campo de estrellas
+        // espesado dentro de la banda. Las dos cosas van juntas, porque lo que se
+        // ve a simple vista es justamente la suma de miles de estrellas que no se
+        // resuelven una a una.
+        let via = milky_way_density(d);
+        if via > 0.001 {
+            let nucleo = v3(0.0680, 0.0700, 0.0880);
+            let borde = v3(0.0340, 0.0360, 0.0520);
+            color += borde.lerp(nucleo, via) * (via * visibilidad);
+        }
+        color += star_field(d, 1.0 + 1.6 * via) * visibilidad;
     }
 
     // Por debajo del horizonte, bruma indigo: el diorama flota y hace falta que
