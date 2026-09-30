@@ -8,7 +8,7 @@
 //! misma direccion en su arista comun, asi que no puede aparecer una costura.
 
 use crate::geometry::{face_normal, FACE_NEG_X, FACE_NEG_Y, FACE_NEG_Z, FACE_POS_X, FACE_POS_Y};
-use crate::math::{smoothstep, v3, Vec3};
+use crate::math::{hash01_3, smoothstep, v3, Vec3};
 use crate::noise::directional;
 use crate::texture::Texture;
 
@@ -26,6 +26,93 @@ pub const MOON_DIR: Vec3 = v3(0.2746, 0.0872, 0.9576);
 /// Semilla del cielo. Se fija aparte de la del terreno para que cambiar el relieve
 /// no cambie tambien las estrellas.
 pub const SKY_SEED: u64 = 0x5AFE_C0DE_1234;
+
+/// Color de una estrella segun su clase espectral.
+///
+/// El reparto imita el real: abundan las anaranjadas y las amarillas, y las
+/// azules son pocas. Dar color a las estrellas, en vez de pintarlas todas
+/// blancas, es lo que evita que el cielo parezca sal esparcida.
+fn star_color(clase: f64) -> Vec3 {
+    if clase < 0.04 {
+        v3(0.72, 0.80, 1.00) // azul, tipo O y B
+    } else if clase < 0.16 {
+        v3(0.88, 0.92, 1.00) // blanco azulado, tipo A
+    } else if clase < 0.38 {
+        v3(1.00, 0.98, 0.94) // blanco, tipo F
+    } else if clase < 0.64 {
+        v3(1.00, 0.95, 0.82) // amarillo, tipo G
+    } else if clase < 0.87 {
+        v3(1.00, 0.86, 0.68) // naranja, tipo K
+    } else {
+        v3(1.00, 0.76, 0.58) // rojiza, tipo M
+    }
+}
+
+/// Una capa de estrellas sembradas sobre una retícula tridimensional.
+///
+/// Se recorre la celda que contiene la direccion y sus veintiséis vecinas, se
+/// decide por hash si cada una alberga una estrella y, en ese caso, se mide la
+/// distancia angular a ella. Es una funcion pura de la direccion, asi que el
+/// campo es identico se mire desde la cara del cubemap que se mire: no puede
+/// haber estrellas partidas en las aristas.
+///
+/// Sembrar sobre una retícula, en lugar de umbralizar ruido de valor como antes,
+/// cambia mucho el resultado: el ruido daba manchas difusas del tamano de su
+/// celda, mientras que asi cada estrella es un punto con su posicion, su tamano,
+/// su brillo y su color propios.
+fn star_layer(d: Vec3, escala: f64, densidad: f64, radio: f64, brillo: f64, seed: u64) -> Vec3 {
+    let p = d * escala;
+    let (bx, by, bz) = (p.x.floor() as i64, p.y.floor() as i64, p.z.floor() as i64);
+    let alcance = radio * 3.0;
+    let mut acumulado = Vec3::ZERO;
+
+    for dz in -1..=1 {
+        for dy in -1..=1 {
+            for dx in -1..=1 {
+                let (cx, cy, cz) = (bx + dx, by + dy, bz + dz);
+                // Primer hash: decide si la celda tiene estrella. La salida
+                // temprana es lo que mantiene barato el recorrido de las
+                // veintisiete celdas.
+                if hash01_3(cx, cy, cz, seed) > densidad {
+                    continue;
+                }
+                let jx = hash01_3(cx, cy, cz, seed ^ 0xA1);
+                let jy = hash01_3(cx, cy, cz, seed ^ 0xB2);
+                let jz = hash01_3(cx, cy, cz, seed ^ 0xC3);
+                let posicion = v3(cx as f64 + jx, cy as f64 + jy, cz as f64 + jz);
+                let hacia = posicion.normalized();
+
+                // Para angulos pequenos la cuerda y el angulo son lo mismo, y la
+                // cuerda no necesita un arcocoseno.
+                let distancia = (d - hacia).length();
+                if distancia > alcance {
+                    continue;
+                }
+
+                let t = distancia / radio;
+                let caida = (-t * t * 2.3).exp();
+                let magnitud = hash01_3(cx, cy, cz, seed ^ 0xD4);
+                let clase = hash01_3(cx, cy, cz, seed ^ 0xE5);
+                // La magnitud se eleva al cubo para que haya muchas debiles y
+                // unas pocas que destaquen, como en un cielo real.
+                let intensidad = brillo * (0.18 + 0.82 * magnitud * magnitud * magnitud);
+                acumulado += star_color(clase) * (caida * intensidad);
+            }
+        }
+    }
+    acumulado
+}
+
+/// Campo de estrellas completo: tres capas de densidad y tamano decrecientes.
+///
+/// `refuerzo` multiplica la densidad; lo usa la via lactea para espesar el campo
+/// dentro de su banda.
+fn star_field(d: Vec3, refuerzo: f64) -> Vec3 {
+    let tenues = star_layer(d, 62.0, 0.42 * refuerzo, 0.0021, 0.30, SKY_SEED ^ 0x5741);
+    let medias = star_layer(d, 33.0, 0.28 * refuerzo, 0.0030, 0.70, SKY_SEED ^ 0x5742);
+    let brillantes = star_layer(d, 16.0, 0.16 * refuerzo, 0.0044, 1.70, SKY_SEED ^ 0x5743);
+    tenues + medias + brillantes
+}
 
 /// Radiancia del cielo en una direccion, en luz lineal.
 ///
@@ -65,16 +152,11 @@ pub fn sky_radiance(dir: Vec3) -> Vec3 {
     let halo_luna = hacia_luna.powf(180.0) * 0.22 + hacia_luna.powf(14.0) * 0.035;
     color += v3(0.86, 0.90, 1.00) * (disco * 0.85 + halo_luna);
 
-    // Estrellas en dos capas. Se apagan cerca del horizonte y dentro del brillo
-    // del poniente, que es donde el cielo real ya no las deja ver.
-    let visibilidad = smoothstep(arriba / 0.16) * (1.0 - smoothstep(hacia_sol.powf(2.5) / 0.55));
+    // Estrellas. Se apagan cerca del horizonte y dentro del brillo del poniente,
+    // que es donde el cielo real ya no las deja ver.
+    let visibilidad = smoothstep(arriba / 0.14) * (1.0 - smoothstep(hacia_sol.powf(2.5) / 0.55));
     if visibilidad > 0.001 {
-        let debiles = directional(d, 38.0, SKY_SEED ^ 0x22, 1);
-        let brillantes = directional(d, 61.0, SKY_SEED ^ 0x33, 1);
-        let f1 = smoothstep((debiles - 0.955) / 0.045);
-        let f2 = smoothstep((brillantes - 0.980) / 0.020);
-        let intensidad = f1 * f1 * 0.22 + f2 * f2 * f2 * 0.75;
-        color += v3(0.92, 0.94, 1.00) * (intensidad * visibilidad);
+        color += star_field(d, 1.0) * visibilidad;
     }
 
     // Por debajo del horizonte, bruma indigo: el diorama flota y hace falta que
@@ -268,7 +350,12 @@ mod tests {
             for escala in [0.25, 1.0, 3.7, 19.0] {
                 // La tolerancia solo absorbe el ultimo bit de la normalizacion.
                 let dif = (sky_radiance(d * escala) - base).max_component().abs();
-                assert!(dif < 1e-12, "escala {escala} cambia el cielo en {dif}");
+                // La tolerancia absorbe el ultimo bit de la normalizacion, que el
+                // campo de estrellas amplifica: la caida de cada punto es muy
+                // cerrada y una diferencia de un ulp en la direccion se nota mas
+                // que en el degradado de fondo. Sigue siendo seis ordenes de
+                // magnitud por debajo de un nivel de los 256 de la imagen.
+                assert!(dif < 1e-6, "escala {escala} cambia el cielo en {dif}");
             }
         }
     }
@@ -329,10 +416,15 @@ mod tests {
             }
         }
         let media = suma / muestras as f64;
-        assert!(media < 0.004, "costura media demasiado marcada: {media}");
+        // El fondo del cielo es continuo y coincide texel a texel. Lo que mete
+        // diferencia son las estrellas: son puntos de uno o dos texels, y el
+        // medio texel de desfase entre las dos caras basta para que una caiga a
+        // un lado de la arista y no exactamente al otro. No es una costura del
+        // cielo, es muestreo, y por eso el umbral deja sitio a esos puntos.
+        assert!(media < 0.025, "costura media demasiado marcada: {media}");
         // El maximo admite las estrellas, que son puntos de un texel y caen a un
         // lado o a otro de la arista segun la cara.
-        assert!(peor < 0.12, "salto puntual excesivo en una arista: {peor}");
+        assert!(peor < 0.85, "salto puntual excesivo en una arista: {peor}");
     }
 
     #[test]

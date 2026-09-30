@@ -624,9 +624,13 @@ pub fn write_previews(
         }
     }
     // Una cara del cielo, a tamano natural, como muestra del cubemap.
-    let cielo = Image::read_ppm(assets.join("skybox").join("sky_neg_x.ppm"))?;
-    cielo.write_png(destino.join("sky_neg_x.png"))?;
-    nombres.push("sky_neg_x.png".to_string());
+    // Las seis caras del cielo, a tamano natural: sirven para revisar de un
+    // vistazo que encajan entre si y que el campo de estrellas es uniforme.
+    for nombre in crate::skybox::FACE_NAMES {
+        let cara = Image::read_ppm(assets.join("skybox").join(format!("sky_{nombre}.ppm")))?;
+        cara.write_png(destino.join(format!("sky_{nombre}.png")))?;
+        nombres.push(format!("sky_{nombre}.png"));
+    }
     Ok(nombres)
 }
 
