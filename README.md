@@ -209,7 +209,7 @@ externa.*
 
 ## Arquitectura del código
 
-Unas 12 900 líneas repartidas en módulos con una responsabilidad cada uno.
+Unas 13 300 líneas repartidas en módulos con una responsabilidad cada uno.
 
 | Módulo | Líneas | Responsabilidad |
 | --- | ---: | --- |
@@ -221,7 +221,7 @@ Unas 12 900 líneas repartidas en módulos con una responsabilidad cada uno.
 | `texture` | 389 | Muestreo por UV, sRGB a lineal y lectura de mapas normales |
 | `texgen` | 1002 | Generación de las texturas, los mapas normales y el cubemap |
 | `material` | 773 | Los doce materiales y sus parámetros físicos |
-| `skybox` | 438 | Cielo analítico y cubemap de seis caras |
+| `skybox` | 693 | Cielo analítico, campo de estrellas, Vía Láctea, luna y cubemap |
 | `acceleration` | 743 | Rejilla voxel densa con DDA y búsqueda exhaustiva de referencia |
 | `lighting` | 953 | Luces, sombras con transmitancia, oclusión de contacto y emisores |
 | `renderer` | 1070 | Trazado recursivo, reparto de energía, tono y render por bloques |
@@ -389,7 +389,7 @@ escena con y sin farol y mide la diferencia sobre el suelo.
 
 ![Skybox](docs/images/ev-skybox.png)
 
-Cubemap de **seis caras de 256 × 256**, muestreado por dirección con filtrado
+Cubemap de **seis caras de 512 × 512**, muestreado por dirección con filtrado
 bilineal y bordes fijados.
 
 El cielo se define una sola vez como una **función de la dirección**
@@ -399,14 +399,51 @@ contiguas evalúan exactamente la misma dirección en su arista común. Hay dos
 pruebas: una comprueba que escalar la dirección no cambia el resultado, y otra
 genera las seis caras y compara los texels de borde de los doce pares contiguos.
 
+Como el cielo solo se evalúa **al generar los recursos**, y no por píxel en el
+render, puede permitirse mucho más detalle del que admitiría un fondo calculado
+al vuelo. Cada texel se promedia con **nueve muestras**, que es lo que evita que
+las estrellas, de uno o dos texels, parpadeen según caigan dentro o fuera del
+centro.
+
+| | |
+| --- | --- |
+| ![cenit](docs/images/textures/sky_pos_y.png) | ![poniente](docs/images/textures/sky_neg_x.png) |
+| Cenit: Vía Láctea y campo de estrellas | Poniente: cirros teñidos y resplandor |
+
+Lo que compone el cielo, de fondo a primer plano:
+
+- **Degradado vertical**: cenit azul profundo, franja media violeta y horizonte
+  más claro, con **bruma índigo** por debajo del horizonte para que la silueta
+  del diorama se apoye en algo y no en negro puro.
+- **Campo de estrellas** sembrado sobre una retícula tridimensional de
+  direcciones: se recorre la celda que contiene la dirección y sus veintiséis
+  vecinas, y cada una decide por hash si alberga una estrella. Así cada estrella
+  tiene posición, tamaño, brillo y color propios, en tres capas de densidad
+  decreciente. El color sigue el reparto real de **clases espectrales**: abundan
+  las anaranjadas y amarillas y las azules son pocas.
+- **Vía Láctea**: una banda alrededor del ecuador galáctico, con el polo
+  inclinado para que cruce el cielo en diagonal. Lleva grumos a lo largo y
+  **vetas oscuras de polvo** que la parten longitudinalmente; sin ellas parece
+  una brocha y no una galaxia vista de canto. Dentro de la banda la densidad de
+  siembra de estrellas sube a más del doble, porque lo que se ve a simple vista
+  es justamente la suma de miles de estrellas que el ojo no resuelve.
+- **Luna** resuelta como esfera, no como círculo: de cada punto del disco se
+  deduce la normal de la superficie, y con ella se calculan la iluminación del
+  sol —que recorta la **fase**, gibosa con la posición actual del sol— y el
+  **oscurecimiento hacia el limbo**. Encima van los **mares**, manchas de basalto
+  que dependen solo de la posición sobre la superficie.
+- **Cirros** estirados en horizontal: la coordenada vertical se multiplica antes
+  de entrar al ruido, porque una nube alta se ve alargada al mirarla de canto. Se
+  pintan **después** del resplandor del poniente, así que los de encima del sol
+  recogen el ámbar por debajo y llevan el filo encendido, mientras que los
+  opuestos se quedan en violeta frío. Eso es lo que ordena el cielo en
+  profundidad, porque dice de dónde viene la luz.
+- **Resplandor del poniente**, con núcleo estrecho y halo ancho pegados al
+  horizonte por una caída exponencial en altura.
+
 El entorno se ve **directamente** y también **en los reflejos**: el agua y el
 bronce lo devuelven, y los materiales opacos lo consultan para su reflejo
 rasante y para la luz ambiente.
-
-La paleta es la del encargo: cenit azul profundo, franja media violeta, brillo
-ámbar en el poniente, luna con su halo frío, dos capas de estrellas y bruma
-índigo por debajo del horizonte, para que la silueta del diorama se apoye en algo
-y no en negro puro.
 
 ### Sombras y oclusión
 
@@ -560,7 +597,7 @@ Otras medidas tomadas al preparar la entrega:
 cargo test
 ```
 
-**235 pruebas**: 221 unitarias repartidas por los módulos y 14 de integración
+**236 pruebas**: 222 unitarias repartidas por los módulos y 14 de integración
 sobre el diorama completo. Además `cargo clippy --all-targets` no emite ni una
 advertencia.
 
@@ -602,7 +639,7 @@ cargo test --lib -- --ignored --nocapture mapa_del_terreno
 | Reflexión | 5 | Hecho | Reflejo recursivo con Fresnel y lóbulo según el exponente. [Agua](docs/images/ev-agua.png), [placa de bronce](docs/images/ev-bronce.png) |
 | Mapas normales | 10 | Hecho | RGB en espacio tangente, base por cara. [Comparación con y sin](#mapas-normales) |
 | Material emisivo | 10 | Hecho | Emisión propia más muestreo explícito por importancia. [Emisores](docs/images/ev-emisores.png) |
-| Skybox | 10 | Hecho | Cubemap de seis caras sin costuras, visible y en reflejos. [Skybox](docs/images/ev-skybox.png) |
+| Skybox | 10 | Hecho | Cubemap de seis caras a 512 sin costuras, con Vía Láctea, luna con fase y cirros. Visible y en reflejos. [Skybox](docs/images/ev-skybox.png) |
 | Terreno procedural de 16 × 16 o más | 20 | Hecho | 24 × 24 con semilla configurable. [Terreno](docs/images/ev-terreno.png) |
 | Repositorio en GitHub | — | Hecho | Este repositorio |
 | Video demostrativo en el README | — | Hecho | [MP4 de 20 s a 720p](docs/video/abadia-del-eclipse.mp4), más [GIF animado](#vista-previa-animada) para verlo en línea |
@@ -649,9 +686,9 @@ compilar `platform.rs` y el proyecto sigue cumpliendo el resto de la rúbrica.
 **Listo:**
 
 - Proyecto funcional, sin dependencias, compilando en release.
-- 235 pruebas en verde y `clippy` sin advertencias.
-- Recursos originales versionados: 12 texturas, 7 mapas normales y 6 caras de
-  cielo.
+- 236 pruebas en verde y `clippy` sin advertencias.
+- Recursos originales versionados: 12 texturas, 7 mapas normales y las 6 caras
+  del cielo a 512, generadas con nueve muestras por texel.
 - Capturas reales del programa, captura de la ventana en marcha y comparación con
   y sin mapas normales.
 - Mediciones de rendimiento tomadas en esta máquina.
