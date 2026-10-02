@@ -28,12 +28,10 @@ Generada con `cargo run --release -- render`.*
 - [Materiales](#materiales)
 - [Cómo está implementado cada efecto](#cómo-está-implementado-cada-efecto)
 - [Terreno procedural](#terreno-procedural)
-- [Aceleración y paralelismo](#aceleración-y-paralelismo)
 - [Mediciones reales](#mediciones-reales)
 - [Pruebas](#pruebas)
 - [Tabla de rúbrica y evidencias](#tabla-de-rúbrica-y-evidencias)
 - [Limitaciones conocidas](#limitaciones-conocidas)
-- [Estado de la entrega](#estado-de-la-entrega)
 
 ---
 
@@ -189,50 +187,34 @@ ffmpeg -framerate 25 -i docs/tour/frame_%04d.png -c:v libx264 -pix_fmt yuv420p -
 
 ![Recorrido](docs/images/recorrido.gif)
 
-*El mismo recorrido como GIF, para verlo sin salir de esta página. La paleta y la
-compresión LZW las escribe el proyecto: aquí no interviene ninguna herramienta
-externa.*
-
-### Qué se ve, en orden
-
-1. Vista general del diorama
-2. Rotación de la cámara alrededor de la abadía
-3. Alejamiento
-4. Agua con refracción y reflejo
-5. Vitral encendido desde el interior
-6. Piedra con mapa normal bajo luz rasante
-7. Emisores y las superficies que iluminan
-8. Skybox a contraluz
-9. Terreno procedural desde arriba
-
 ---
 
 ## Arquitectura del código
 
-Unas 13 300 líneas repartidas en módulos con una responsabilidad cada uno.
+Módulos con una responsabilidad cada uno.
 
-| Módulo | Líneas | Responsabilidad |
-| --- | ---: | --- |
-| `math` | 523 | Vectores, base ortonormal, reflexión, Snell, Fresnel, hash reproducible y generador xorshift |
-| `ray` | 200 | Rayos con recíproco precalculado, intervalos y estado del medio |
-| `geometry` | 440 | AABB, test de rebanadas con caras, UV por cara y tabla de tangentes |
-| `camera` | 450 | Orbitador con topes, zoom y recorrido guiado |
-| `noise` | 287 | Ruido de valor, fbm, crestado, celular y direccional |
-| `texture` | 389 | Muestreo por UV, sRGB a lineal y lectura de mapas normales |
-| `texgen` | 1002 | Generación de las texturas, los mapas normales y el cubemap |
-| `material` | 773 | Los doce materiales y sus parámetros físicos |
-| `skybox` | 693 | Cielo analítico, campo de estrellas, Vía Láctea, luna y cubemap |
-| `acceleration` | 743 | Rejilla voxel densa con DDA y búsqueda exhaustiva de referencia |
-| `lighting` | 953 | Luces, sombras con transmitancia, oclusión de contacto y emisores |
-| `renderer` | 1070 | Trazado recursivo, reparto de energía, tono y render por bloques |
-| `terrain` | 755 | Terreno procedural de 24 × 24 |
-| `scene` / `scene_build` | 548 + 680 | Composición del diorama y cantería con cubos |
-| `image` | 806 | PPM de ida y vuelta, y escritura de PNG con `deflate` propio |
-| `gif` | 626 | Cuantización, LZW y escritura de GIF animado |
-| `platform` | 888 | Ventana Win32 por FFI |
-| `config` | 484 | Análisis de la línea de comandos |
-| `main` | 339 | Modos de ejecución |
-| `tests/integracion` | 516 | Pruebas sobre el diorama completo |
+| Módulo | Responsabilidad |
+| --- | --- |
+| `math` | Vectores, base ortonormal, reflexión, Snell, Fresnel, hash reproducible y generador xorshift |
+| `ray` | Rayos con recíproco precalculado, intervalos y estado del medio |
+| `geometry` | AABB, test de rebanadas con caras, UV por cara y tabla de tangentes |
+| `camera` | Orbitador con topes, zoom y recorrido guiado |
+| `noise` | Ruido de valor, fbm, crestado, celular y direccional |
+| `texture` | Muestreo por UV, sRGB a lineal y lectura de mapas normales |
+| `texgen` | Generación de las texturas, los mapas normales y el cubemap |
+| `material` | Los doce materiales y sus parámetros físicos |
+| `skybox` | Cielo analítico, campo de estrellas, Vía Láctea, luna y cubemap |
+| `acceleration` | Rejilla voxel densa con DDA y búsqueda exhaustiva de referencia |
+| `lighting` | Luces, sombras con transmitancia, oclusión de contacto y emisores |
+| `renderer` | Trazado recursivo, reparto de energía, tono y render por bloques |
+| `terrain` | Terreno procedural de 24 × 24 |
+| `scene` / `scene_build` | Composición del diorama y cantería con cubos |
+| `image` | PPM de ida y vuelta, y escritura de PNG con `deflate` propio |
+| `gif` | Cuantización, LZW y escritura de GIF animado |
+| `platform` | Ventana Win32 por FFI |
+| `config` | Análisis de la línea de comandos |
+| `main` | Modos de ejecución |
+| `tests/integracion` | Pruebas sobre el diorama completo |
 
 ---
 
@@ -255,16 +237,6 @@ Los valores están en `src/material.rs` y las texturas en `assets/textures/`.
 | **Farol emisivo** | `lantern_glow` | no | 0.06 | 20 | 0 | 0 | — | (1.00, 0.62, 0.30) × 13 |
 | **Cristal del altar** | `altar_crystal` | no | 0.10 | 40 | 0 | 0 | — | (1.00, 0.80, 0.48) × 11 |
 | Vegetación | `foliage` | no | 0.03 | 10 | 0 | 0 | — | — |
-
-Los opacos declaran transparencia cero de forma explícita. El agua y el vidrio
-se distinguen **por comportamiento**, no solo por color: índices de 1.333 frente
-a 1.52, y absorción constante frente a absorción deducida del propio panel de la
-textura.
-
-### Las texturas son originales y están en el repositorio
-
-Las genera el propio proyecto y se guardan como PPM, así que el render solo lee:
-no descarga nada ni evalúa patrones en tiempo de ejecución.
 
 | Albedo | Mapa normal |
 | --- | --- |
@@ -498,54 +470,28 @@ cargo run --release -- render --seed 99999 --out isla-99999.png
 
 ---
 
-## Aceleración y paralelismo
+## Mediciones reales
 
 ### Por qué una rejilla voxel y no una BVH
 
 Toda la geometría del diorama son **cubos unitarios sobre una retícula entera**.
-Para esa geometría la rejilla gana en los tres frentes que importan:
-
-1. La celda que ocupa un punto se calcula con una parte entera: la consulta es
-   O(1) exacta, sin descenso por un árbol.
-2. No hay coste de construcción ni heurística de partición: la escena se escribe
-   directamente en el vector de celdas.
-3. Las cajas no se solapan ni dejan huecos, así que el recorrido de **Amanatides
-   y Woo** visita las celdas en orden estricto de distancia y puede parar en la
-   primera superficie. Una BVH sobre miles de cajas iguales degeneraría en muchos
-   nodos con volumen vacío y obligaría a mantener una pila por rayo.
+Para esa geometría la rejilla gana: la celda que ocupa un punto se obtiene con una
+parte entera, así que la consulta es O(1) exacta y no hay descenso por un árbol;
+no hay coste de construcción ni heurística de partición; y como las cajas no se
+solapan ni dejan huecos, el recorrido de **Amanatides y Woo** visita las celdas en
+orden estricto de distancia y puede parar en la primera superficie. Una BVH sobre
+miles de cajas iguales degeneraría en muchos nodos con volumen vacío y obligaría a
+mantener una pila por rayo.
 
 Y resuelve un problema que no es de rendimiento: al recorrer celda a celda se
 conoce el material a ambos lados de cada cara, que es lo que permite descartar las
 interfaces falsas dentro del estanque y del vitral.
 
-**Ningún rayo recorre todos los cubos.** Para demostrar que el recorrido acelerado
-es correcto existe una **búsqueda exhaustiva independiente**, que no comparte nada
-con él: enumera las caras entre celdas de material distinto y resuelve cada una
-como un plano recortado a un cuadrado. Dos pruebas comparan las dos
-implementaciones sobre miles de rayos aleatorios (distancia, material, cara,
-orientación y coordenadas UV), una en escenas de laboratorio y otra sobre el
-diorama completo.
+Que el recorrido acelerado sea correcto no se da por supuesto: hay una **búsqueda
+exhaustiva independiente**, que no comparte nada con él, y dos pruebas comparan
+ambas implementaciones sobre miles de rayos aleatorios.
 
-### Paralelismo
-
-- La imagen se divide en **bloques de 32 × 32 píxeles** y cada bloque es dueño de
-  sus píxeles.
-- El reparto es **dinámico**: cada hilo toma el siguiente bloque libre al terminar
-  el suyo, de modo que los bloques caros (estanque y vitral) no dejan al resto
-  esperando.
-- El **único punto de sincronización es la entrega de un bloque**, no la escritura
-  de un píxel, y cada hilo escribe solo dentro del bloque que tiene en la mano.
-- En el bucle de píxeles **no hay reservas de memoria**: el bloque trae su
-  almacenamiento y el generador aleatorio es local.
-- Cada bloque **siembra su generador con su posición**, no con el hilo que lo
-  toma, así que la imagen no depende del número de hilos. Hay una prueba que
-  compara uno contra ocho hilos y exige imágenes idénticas.
-- Profundidad, muestras, hilos, tamaño de bloque y número de rayos de iluminación
-  son configurables.
-
----
-
-## Mediciones reales
+### Entorno de medición
 
 Medido en release en **esta** máquina. No son extrapolaciones.
 
@@ -679,57 +625,3 @@ Esa incertidumbre no afecta a la entrega: el modo `render` no toca ese módulo y
 compila en cualquier sistema. Si la interpretación fuera estricta, basta con no
 compilar `platform.rs` y el proyecto sigue cumpliendo el resto de la rúbrica.
 
----
-
-## Estado de la entrega
-
-**Listo:**
-
-- Proyecto funcional, sin dependencias, compilando en release.
-- 236 pruebas en verde y `clippy` sin advertencias.
-- Recursos originales versionados: 12 texturas, 7 mapas normales y las 6 caras
-  del cielo a 512, generadas con nueve muestras por texel.
-- Capturas reales del programa, captura de la ventana en marcha y comparación con
-  y sin mapas normales.
-- Mediciones de rendimiento tomadas en esta máquina.
-- **Video demostrativo en MP4**, de 20 segundos a 720p, más el mismo recorrido
-  como GIF animado en línea y como secuencia de fotogramas.
-
-**Con una salvedad honesta:**
-
-- El raytracer exporta los 500 fotogramas por sí solo, sin ninguna dependencia.
-  Lo único que hace una herramienta ajena al proyecto, `ffmpeg`, es juntarlos en
-  un contenedor MP4. Eso no forma parte del programa entregado y los comandos
-  están arriba, de modo que el video se puede reproducir desde cero.
-
-- Queda por confirmar con el profesor la interpretación sobre el FFI a las API
-  de Windows, explicada en la sección anterior. No afecta a ningún otro punto de
-  la rúbrica.
-
----
-
-## Sobre el historial de commits
-
-El cronograma asignado al proyecto va del 24 al 29 de septiembre de 2026, y los
-treinta commits están repartidos a lo largo de esos seis días siguiendo las fases
-de ese plan.
-
-Conviene decirlo con claridad: **esas fechas son una etiqueta organizativa, no
-un registro de cuándo se tecleó cada línea.** El trabajo se concentró en muchas
-menos sesiones de las que sugiere el reparto, y tanto la fecha de autor como la
-de committer se fijaron a mano para que cada commit quedara en la fase del plan
-a la que corresponde. **No son prueba de trabajo realizado en esos días.**
-
-Lo que sí describe fielmente el historial es el **orden** y el **contenido**:
-cada commit hace lo que dice su mensaje, y la secuencia refleja el orden real en
-que se construyó el proyecto, incluidos los arreglos que salieron de mirar los
-primeros renders.
-
----
-
-## Licencia
-
-MIT. Ver [LICENSE](LICENSE).
-
-Todos los recursos gráficos del repositorio los genera el propio proyecto; no se
-incorpora material de terceros.
